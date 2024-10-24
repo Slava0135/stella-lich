@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13)
 
 project(
-    stella-lichc
+    stella-lich
     LANGUAGES CXX
 )
 
@@ -22,4 +22,4 @@ FetchContent_MakeAvailable(Catch2)
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)
-catch_discover_tests(tests)
+catch_discover_tests(test)
