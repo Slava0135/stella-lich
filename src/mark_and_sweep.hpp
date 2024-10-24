@@ -12,7 +12,7 @@ class MarkAndSweep {
   const size_t max_memory;
 
   MarkAndSweep(const size_t max_memory)
-      : max_memory(max_memory), stats_(Stats{alive : 0}) {}
+      : max_memory(max_memory), stats_(Stats{.alive = 0}) {}
 
   Stats const& get_stats();
 
