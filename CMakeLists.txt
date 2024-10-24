@@ -9,16 +9,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_library(
-    lich STATIC
-    src/mark_and_sweep.hpp
-    src/mark_and_sweep.cpp
-)
+add_subdirectory(src)
 
-target_include_directories(
-    lich PUBLIC
-    $<INSTALL_INTERFACE:src>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-)
-
+enable_testing()
 add_subdirectory(test)

@@ -9,7 +9,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 add_executable(tests ./test.cpp)
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain lich)
+target_link_libraries(tests PUBLIC dev)
+target_link_libraries(tests PUBLIC Catch2::Catch2WithMain)
+target_include_directories(tests PUBLIC ../src)
 
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
