@@ -2,6 +2,6 @@
 #include <mark_and_sweep.hpp>
 
 TEST_CASE("no objects") {
-  auto collector = gc::MarkAndSweep(0);
+  gc::MarkAndSweep collector(0);
   REQUIRE(collector.get_stats().alive == 0);
 }
