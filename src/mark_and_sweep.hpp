@@ -23,6 +23,7 @@ class MarkAndSweep {
   }
 
   Stats const& get_stats() const;
+  const std::vector<void**>& get_roots() const;
 
   void push_root(void** root);
   void pop_root(void** root);

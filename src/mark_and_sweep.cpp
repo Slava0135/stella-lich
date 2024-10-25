@@ -28,4 +28,7 @@ void* MarkAndSweep::allocate(std::size_t bytes) {
     return nullptr;
   }
 }
+const std::vector<void**>& MarkAndSweep::get_roots() const {
+  return this->roots_;
+}
 }  // namespace gc
