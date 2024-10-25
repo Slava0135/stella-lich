@@ -17,7 +17,7 @@ class MarkAndSweep {
 
   MarkAndSweep(const size_t max_memory)
       : max_memory(max_memory), stats_(Stats{.n_alive = 0, .n_roots = 0}) {
-    space_ = new void*[max_memory];
+    space_ = std::make_unique<unsigned char[]>(max_memory);
   }
 
   Stats const& get_stats() const;
@@ -25,12 +25,10 @@ class MarkAndSweep {
   void push_root(void** root);
   void pop_root(void** root);
 
-  ~MarkAndSweep() { delete[] space_; }
-
  private:
   Stats stats_;
-  void** space_;
-  std::vector<void **> roots_;
+  std::unique_ptr<unsigned char[]> space_;
+  std::vector<void**> roots_;
 };
 
 }  // namespace gc
