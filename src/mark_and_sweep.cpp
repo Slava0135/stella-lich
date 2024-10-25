@@ -21,10 +21,12 @@ void MarkAndSweep::pop_root(void** root) {
 void* MarkAndSweep::allocate(std::size_t bytes) {
   assert(bytes > 0 && "can't allocate 0 bytes");
   auto to_allocate = bytes;
-  // if object is less than pointer then it can't contain pointers and we don't
-  // need `done` array
+  bool has_pointers = true;
+  // if object size is less than pointer size then it can't contain pointers and
+  // we don't need `done` array
   if (to_allocate < this->pointer_size) {
     to_allocate = this->pointer_size;
+    has_pointers = false;
   } else {
     to_allocate += this->done_size;
     auto offset = to_allocate % this->pointer_size;
@@ -32,13 +34,14 @@ void* MarkAndSweep::allocate(std::size_t bytes) {
       to_allocate += (pointer_size - offset);
     }
   }
-  assert(bytes + done_size <= to_allocate &&
-         "memory at all times must fit all object fields and `done` array");
   assert(to_allocate % pointer_size == 0 &&
          "object address must be aligned to pointer size");
-  assert(to_allocate == this->pointer_size ||
-         to_allocate >= this->pointer_size + this->done_size &&
-             "not enough object bytes for algorithm");
+  if (has_pointers) {
+    assert(bytes + done_size <= to_allocate &&
+           "memory at all times must fit all object fields and `done` array");
+    assert(to_allocate >= this->pointer_size + this->done_size &&
+           "not enough memory for algorithm");
+  }
   size_t next_bytes_allocated = this->stats_.bytes_allocated + to_allocate;
   if (next_bytes_allocated <= this->max_memory) {
     this->stats_.n_alive++;
