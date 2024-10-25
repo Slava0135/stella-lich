@@ -12,11 +12,13 @@ class MarkAndSweep {
   struct Stats {
     size_t n_alive;
     size_t n_roots;
+    size_t bytes_allocated;
   };
   const size_t max_memory;
 
   MarkAndSweep(const size_t max_memory)
-      : max_memory(max_memory), stats_(Stats{.n_alive = 0, .n_roots = 0}) {
+      : max_memory(max_memory),
+        stats_(Stats{.n_alive = 0, .n_roots = 0, .bytes_allocated = 0}) {
     space_ = std::make_unique<unsigned char[]>(max_memory);
   }
 
@@ -24,6 +26,8 @@ class MarkAndSweep {
 
   void push_root(void** root);
   void pop_root(void** root);
+
+  void* allocate(std::size_t bytes);
 
  private:
   Stats stats_;

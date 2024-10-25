@@ -20,3 +20,29 @@ TEST_CASE("push/pop roots") {
   collector.pop_root(root_a);
   REQUIRE(collector.get_stats().n_roots == 0);
 }
+
+TEST_CASE("allocate") {
+  SECTION("one byte - one object") {
+    gc::MarkAndSweep collector(1);
+    REQUIRE(collector.get_stats().n_alive == 0);
+    REQUIRE(collector.allocate(1) != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 1);
+    REQUIRE(collector.get_stats().bytes_allocated == 1);
+    REQUIRE(collector.allocate(1) == nullptr);
+    REQUIRE(collector.get_stats().n_alive == 1);
+    REQUIRE(collector.get_stats().bytes_allocated == 1);
+  }
+  SECTION("many bytes - many objects") {
+    gc::MarkAndSweep collector(10);
+    REQUIRE(collector.get_stats().n_alive == 0);
+    REQUIRE(collector.allocate(3) != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 1);
+    REQUIRE(collector.get_stats().bytes_allocated == 3);
+    REQUIRE(collector.allocate(4) != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 2);
+    REQUIRE(collector.get_stats().bytes_allocated == 7);
+    REQUIRE(collector.allocate(5) == nullptr);
+    REQUIRE(collector.get_stats().n_alive == 2);
+    REQUIRE(collector.get_stats().bytes_allocated == 7);
+  }
+}
