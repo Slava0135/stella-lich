@@ -15,11 +15,13 @@ class MarkAndSweep {
     size_t bytes_allocated;
   };
   const size_t max_memory;
-  const size_t align_in_bytes;
+  const size_t pointer_size;
+  const size_t done_size;
 
-  MarkAndSweep(const size_t max_memory, const size_t align_in_bytes)
+  MarkAndSweep(const size_t max_memory, const size_t pointer_size, const size_t done_size)
       : max_memory(max_memory),
-        align_in_bytes(align_in_bytes),
+        pointer_size(pointer_size),
+        done_size(done_size),
         stats_(Stats{.n_alive = 0, .n_roots = 0, .bytes_allocated = 0}) {
     space_ = std::make_unique<unsigned char[]>(max_memory);
   }
