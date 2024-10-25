@@ -9,6 +9,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(Catch2)
 
 add_executable(tests ./test.cpp)
+
+target_compile_options(tests PRIVATE -g -fsanitize=address -fno-omit-frame-pointer)
+target_link_options(tests PRIVATE -g -fsanitize=address -fno-omit-frame-pointer)
+
 target_link_libraries(tests PUBLIC dev)
 target_link_libraries(tests PUBLIC Catch2::Catch2WithMain)
 target_include_directories(tests PUBLIC ../src)
