@@ -19,7 +19,13 @@ void MarkAndSweep::pop_root(void** root) {
   this->roots_.pop_back();
 }
 void* MarkAndSweep::allocate(std::size_t bytes) {
-  auto next_bytes_allocated = this->stats_.bytes_allocated + bytes;
+  assert(bytes > 0 && "can't allocate 0 bytes");
+  auto unaligned = this->stats_.bytes_allocated + bytes;
+  auto offset = unaligned % this->align_in_bytes;
+  auto next_bytes_allocated = unaligned;
+  if (offset) {
+    next_bytes_allocated += (align_in_bytes - offset);
+  }
   if (next_bytes_allocated <= this->max_memory) {
     this->stats_.n_alive++;
     this->stats_.bytes_allocated = next_bytes_allocated;

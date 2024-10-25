@@ -2,12 +2,12 @@
 #include <mark_and_sweep.hpp>
 
 TEST_CASE("no objects") {
-  gc::MarkAndSweep collector(0);
+  gc::MarkAndSweep collector(0, 1);
   REQUIRE(collector.get_stats().n_alive == 0);
 }
 
 TEST_CASE("push/pop roots") {
-  gc::MarkAndSweep collector(0);
+  gc::MarkAndSweep collector(0, 1);
   REQUIRE(collector.get_stats().n_roots == 0);
   void* objects[2];
   void** root_a = &objects[0];
@@ -23,7 +23,7 @@ TEST_CASE("push/pop roots") {
 
 TEST_CASE("allocate") {
   SECTION("one byte - one object") {
-    gc::MarkAndSweep collector(1);
+    gc::MarkAndSweep collector(1, 1);
     REQUIRE(collector.get_stats().n_alive == 0);
     REQUIRE(collector.allocate(1) != nullptr);
     REQUIRE(collector.get_stats().n_alive == 1);
@@ -33,7 +33,7 @@ TEST_CASE("allocate") {
     REQUIRE(collector.get_stats().bytes_allocated == 1);
   }
   SECTION("many bytes - many objects") {
-    gc::MarkAndSweep collector(10);
+    gc::MarkAndSweep collector(10, 1);
     REQUIRE(collector.get_stats().n_alive == 0);
     REQUIRE(collector.allocate(3) != nullptr);
     REQUIRE(collector.get_stats().n_alive == 1);
@@ -44,5 +44,18 @@ TEST_CASE("allocate") {
     REQUIRE(collector.allocate(5) == nullptr);
     REQUIRE(collector.get_stats().n_alive == 2);
     REQUIRE(collector.get_stats().bytes_allocated == 7);
+  }
+  SECTION("align objects") {
+    gc::MarkAndSweep collector(21, 4);
+    REQUIRE(collector.get_stats().n_alive == 0);
+    REQUIRE(collector.allocate(1) != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 1);
+    REQUIRE(collector.get_stats().bytes_allocated == 4);
+    REQUIRE(collector.allocate(8) != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 2);
+    REQUIRE(collector.get_stats().bytes_allocated == 12);
+    REQUIRE(collector.allocate(9) == nullptr);
+    REQUIRE(collector.get_stats().n_alive == 2);
+    REQUIRE(collector.get_stats().bytes_allocated == 12);
   }
 }
