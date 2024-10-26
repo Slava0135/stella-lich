@@ -5,12 +5,12 @@
 static_assert(sizeof(gc::MarkAndSweep::pointer_t) == 8);
 
 TEST_CASE("no objects") {
-  gc::MarkAndSweep collector(0);
+  gc::MarkAndSweep collector(42);
   REQUIRE(collector.get_stats().n_alive == 0);
 }
 
 TEST_CASE("push/pop roots") {
-  gc::MarkAndSweep collector(0);
+  gc::MarkAndSweep collector(42);
   REQUIRE(collector.get_stats().n_roots == 0);
   void *objects[2];
   void **root_a = &objects[0];

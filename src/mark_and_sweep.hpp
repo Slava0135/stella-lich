@@ -19,15 +19,18 @@ public:
 
   using done_t = uint32_t;
   using block_size_t = uint32_t;
-  using pointer_t = void*;
+  using pointer_t = void *;
 
   MarkAndSweep(const size_t max_memory)
       : max_memory(max_memory),
         stats_(Stats{.n_alive = 0, .n_roots = 0, .bytes_allocated = 0}) {
-    assert(sizeof(done_t) + sizeof(block_size_t) == sizeof(pointer_t));
+    assert(meta_info_size() == sizeof(pointer_t));
     space_ = std::make_unique<unsigned char[]>(max_memory);
     space_start_ = space_.get();
     space_end_ = &space_[max_memory - 1];
+    auto first_block_idx = meta_info_size();
+    freelist_ = &space_[first_block_idx];
+    set_block_size(first_block_idx, max_memory - meta_info_size());
   }
 
   Stats const &get_stats() const;
@@ -47,11 +50,15 @@ private:
   std::vector<void **> roots_;
   void *freelist_;
 
-  bool is_in_space(void *obj) {
+  bool is_in_space(void *obj) const {
     return space_start_ <= obj && obj <= space_end_;
   }
 
   void set_block_size(size_t obj_idx, size_t size);
+
+  constexpr size_t meta_info_size() const {
+    return sizeof(done_t) + sizeof(block_size_t);
+  }
 };
 
 } // namespace gc
