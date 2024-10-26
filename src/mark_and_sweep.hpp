@@ -27,7 +27,9 @@ public:
     assert(meta_info_size() == sizeof(pointer_t));
     space_ = std::make_unique<unsigned char[]>(max_memory);
     space_start_ = space_.get();
-    space_end_ = &space_[max_memory - 1];
+    assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
+           "space start address must be aligned to pointer size");
+    space_end_ = &space_[max_memory];
     auto first_block_idx = meta_info_size();
     freelist_ = &space_[first_block_idx];
     set_block_size(first_block_idx, max_memory - meta_info_size());
@@ -40,6 +42,7 @@ public:
   void pop_root(void **root);
 
   void *allocate(std::size_t bytes);
+  void collect();
 
 private:
   const void *space_start_;
@@ -50,11 +53,11 @@ private:
   std::vector<void **> roots_;
   void *freelist_;
 
-  bool is_in_space(void *obj) const {
-    return space_start_ <= obj && obj <= space_end_;
-  }
+  bool is_in_space(void *obj) const;
+  size_t pointer_to_idx(void *obj) const;
 
   void set_block_size(size_t obj_idx, size_t size);
+  size_t get_block_size(size_t obj_idx) const;
 
   constexpr size_t meta_info_size() const {
     return sizeof(done_t) + sizeof(block_size_t);

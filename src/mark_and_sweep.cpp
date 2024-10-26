@@ -4,13 +4,16 @@
 #include <limits>
 
 namespace gc {
+
 MarkAndSweep::Stats const &MarkAndSweep::get_stats() const {
   return this->stats_;
 }
+
 void MarkAndSweep::push_root(void **root) {
   this->stats_.n_roots++;
   this->roots_.push_back(root);
 }
+
 void MarkAndSweep::pop_root(void **root) {
   assert(this->stats_.n_roots > 0 &&
          "roots must not be empty when poping root");
@@ -19,6 +22,7 @@ void MarkAndSweep::pop_root(void **root) {
          "the root must be at the top of the stack");
   this->roots_.pop_back();
 }
+
 void *MarkAndSweep::allocate(std::size_t bytes) {
   assert(bytes > 0 && "can't allocate 0 bytes");
   // BLOCK STRUCTURE
@@ -37,23 +41,77 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
          "object address must be aligned to pointer size");
   assert(allocate_at_least <= to_allocate &&
          "allocated memory must fit all object fields and meta info");
-  size_t next_bytes_allocated = this->stats_.bytes_allocated + to_allocate;
-  if (next_bytes_allocated <= this->max_memory) {
-    this->stats_.n_alive++;
-    this->stats_.bytes_allocated = next_bytes_allocated;
-    return reinterpret_cast<void *>(next_bytes_allocated);
-  } else {
-    return nullptr;
+
+  void **prev_free_block = &freelist_;
+  void *free_block = freelist_;
+  while (free_block) {
+    auto block_idx = pointer_to_idx(free_block);
+    auto block_size = get_block_size(block_idx);
+    if (block_size == to_allocate) {
+      set_block_size(block_idx, to_allocate);
+      stats_.n_alive += 1;
+      stats_.bytes_allocated += to_allocate;
+      return free_block;
+    } else if (block_size >=
+               to_allocate + meta_info_size() + sizeof(pointer_t)) {
+      // take required space and split remaining into new block
+      set_block_size(block_idx, to_allocate);
+      auto new_block_idx = block_idx + to_allocate + meta_info_size();
+      auto new_block_size = block_size - to_allocate - meta_info_size();
+      set_block_size(new_block_idx, new_block_size);
+      *prev_free_block = &space_[new_block_idx];
+      stats_.n_alive += 1;
+      stats_.bytes_allocated += to_allocate;
+      return free_block;
+    } else if (block_size > to_allocate) {
+      // can't split block, fill the block fully instead and zero unused part
+      for (size_t idx = block_idx + to_allocate; idx < block_idx - block_size;
+           idx++) {
+        space_[idx] = 0;
+      }
+      stats_.n_alive += 1;
+      stats_.bytes_allocated += block_size;
+      return free_block;
+    }
+    prev_free_block = reinterpret_cast<void **>(&space_[block_idx]);
+    free_block = *prev_free_block;
   }
+  // out of free blocks
+  return nullptr;
 }
+
+void MarkAndSweep::collect() {}
+
 const std::vector<void **> &MarkAndSweep::get_roots() const {
   return this->roots_;
 }
+
+bool MarkAndSweep::is_in_space(void *obj) const {
+  return reinterpret_cast<uintptr_t>(space_start_) + meta_info_size() <=
+             reinterpret_cast<uintptr_t>(obj) &&
+         reinterpret_cast<uintptr_t>(obj) <
+             reinterpret_cast<uintptr_t>(space_end_);
+}
+
+size_t MarkAndSweep::pointer_to_idx(void *obj) const {
+  assert(is_in_space(obj));
+  auto result = reinterpret_cast<uintptr_t>(space_start_) -
+                reinterpret_cast<uintptr_t>(obj);
+  assert(result % sizeof(pointer_t) == 0 &&
+         "all objects must be aligned to pointer size");
+  return result;
+}
+
 void MarkAndSweep::set_block_size(size_t obj_idx, size_t size) {
   constexpr block_size_t max_size{std::numeric_limits<block_size_t>::max()};
   assert(size < max_size && "block size can't exceed limit");
-  assert(sizeof(block_size_t) + sizeof(done_t) <= obj_idx);
   size_t block_size_idx = obj_idx - sizeof(block_size_t) - sizeof(done_t);
   space_[block_size_idx] = static_cast<block_size_t>(size);
 }
+
+size_t MarkAndSweep::get_block_size(size_t obj_idx) const {
+  size_t block_size_idx = obj_idx - sizeof(block_size_t) - sizeof(done_t);
+  return space_[block_size_idx];
+}
+
 } // namespace gc

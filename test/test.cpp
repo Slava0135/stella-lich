@@ -37,3 +37,22 @@ TEST_CASE("allocate") {
   REQUIRE(collector.get_stats().n_alive == 2);
   REQUIRE(collector.get_stats().bytes_allocated == 32);
 }
+
+TEST_CASE("collect") {
+  SECTION("no alive objects") {
+    gc::MarkAndSweep collector(1000);
+    REQUIRE(collector.get_stats().n_alive == 0);
+    REQUIRE(collector.allocate(8) != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 1);
+    REQUIRE(collector.get_stats().bytes_allocated == 16);
+    REQUIRE(collector.allocate(16) != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 2);
+    REQUIRE(collector.get_stats().bytes_allocated == 16 + 24);
+    REQUIRE(collector.allocate(24) != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 3);
+    REQUIRE(collector.get_stats().bytes_allocated == 16 + 24 + 32);
+    collector.collect();
+    REQUIRE(collector.get_stats().n_alive == 0);
+    REQUIRE(collector.get_stats().bytes_allocated == 0);
+  }
+}
