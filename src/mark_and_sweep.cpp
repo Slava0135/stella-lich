@@ -26,16 +26,16 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
   //                    -1 | block_size | done array    
   // object pointer -->  0 | field
   //                     1 | ...
-  auto to_allocate = this->block_size_size + this->done_size + bytes;
+  auto to_allocate = this->block_size_size_ + this->done_size_ + bytes;
   auto offset = to_allocate % this->pointer_size;
   if (offset) {
     to_allocate += (pointer_size - offset);
   }
   assert(to_allocate % pointer_size == 0 &&
          "object address must be aligned to pointer size");
-  assert(this->block_size_size + this->done_size + bytes <= to_allocate &&
+  assert(this->block_size_size_ + this->done_size_ + bytes <= to_allocate &&
          "memory at all times must fit all object fields and meta info");
-  assert(to_allocate >= this->pointer_size + this->done_size &&
+  assert(to_allocate >= this->pointer_size + this->done_size_ &&
          "not enough memory for algorithm");
   size_t next_bytes_allocated = this->stats_.bytes_allocated + to_allocate;
   if (next_bytes_allocated <= this->max_memory) {
