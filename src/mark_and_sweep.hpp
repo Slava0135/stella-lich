@@ -32,7 +32,7 @@ public:
     space_end_ = &space_[max_memory];
     auto first_block_idx = meta_info_size();
     freelist_ = &space_[first_block_idx];
-    set_block_size(first_block_idx, max_memory - meta_info_size());
+    set_block_size(first_block_idx, max_memory);
   }
 
   Stats const &get_stats() const;
@@ -53,11 +53,17 @@ private:
   std::vector<void **> roots_;
   void *freelist_;
 
-  bool is_in_space(void *obj) const;
-  size_t pointer_to_idx(void *obj) const;
+  void mark();
+  void sweep();
 
-  void set_block_size(size_t obj_idx, size_t size);
+  bool is_in_space(void const *obj) const;
+  size_t pointer_to_idx(void const *obj) const;
+
+  void set_block_size(size_t obj_idx, block_size_t size);
   size_t get_block_size(size_t obj_idx) const;
+
+  void set_done_value(size_t obj_idx, done_t value);
+  size_t get_done_value(size_t obj_idx) const;
 
   constexpr size_t meta_info_size() const {
     return sizeof(done_t) + sizeof(block_size_t);
