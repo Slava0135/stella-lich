@@ -53,7 +53,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       stats_.bytes_allocated += to_allocate;
       return free_block;
     } else if (block_size >=
-               to_allocate + meta_info_size() + sizeof(pointer_t)) {
+               to_allocate + (meta_info_size() + sizeof(pointer_t))) {
       // take required space and split remaining into new block
       set_block_size(block_idx, to_allocate);
       auto new_block_idx = block_idx + to_allocate + meta_info_size();
@@ -95,23 +95,24 @@ bool MarkAndSweep::is_in_space(void *obj) const {
 
 size_t MarkAndSweep::pointer_to_idx(void *obj) const {
   assert(is_in_space(obj));
-  auto result = reinterpret_cast<uintptr_t>(space_start_) -
-                reinterpret_cast<uintptr_t>(obj);
-  assert(result % sizeof(pointer_t) == 0 &&
+  auto idx = reinterpret_cast<uintptr_t>(obj) - reinterpret_cast<uintptr_t>(space_start_);
+  assert(idx % sizeof(pointer_t) == 0 &&
          "all objects must be aligned to pointer size");
-  return result;
+  assert(idx < max_memory);
+  return idx;
 }
 
 void MarkAndSweep::set_block_size(size_t obj_idx, size_t size) {
   constexpr block_size_t max_size{std::numeric_limits<block_size_t>::max()};
   assert(size < max_size && "block size can't exceed limit");
   size_t block_size_idx = obj_idx - sizeof(block_size_t) - sizeof(done_t);
-  space_[block_size_idx] = static_cast<block_size_t>(size);
+  *reinterpret_cast<block_size_t *>(&space_[block_size_idx]) = size;
+  assert(get_block_size(obj_idx) == size);
 }
 
 size_t MarkAndSweep::get_block_size(size_t obj_idx) const {
   size_t block_size_idx = obj_idx - sizeof(block_size_t) - sizeof(done_t);
-  return space_[block_size_idx];
+  return *reinterpret_cast<block_size_t *>(&space_[block_size_idx]);
 }
 
 } // namespace gc
