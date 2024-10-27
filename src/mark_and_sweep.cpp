@@ -7,7 +7,7 @@ namespace gc {
 
 MarkAndSweep::MarkAndSweep(const size_t max_memory)
     : max_memory(max_memory),
-      stats_(Stats{.n_alive = 0, .n_roots = 0, .bytes_allocated = 0}) {
+      stats_(Stats{.n_alive = 0, .n_roots = 0, .n_blocks = 1, .bytes_allocated = 0, .bytes_free = max_memory}) {
   space_ = std::make_unique<unsigned char[]>(max_memory);
   space_start_ = space_.get();
   assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
@@ -68,6 +68,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
       stats_.n_alive += 1;
+      stats_.bytes_free -= block_meta->block_size;
       stats_.bytes_allocated += block_meta->block_size;
       return free_block;
     } else if (block_meta->block_size > to_allocate &&
@@ -79,12 +80,14 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       new_block_meta->block_size = block_meta->block_size - to_allocate;
       new_block_meta->done = 0;
       new_block_meta->mark = FREE;
+      stats_.n_blocks += 1;
       *prev_free_block = &space_[new_block_idx];
 
       block_meta->block_size = to_allocate;
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
       stats_.n_alive += 1;
+      stats_.bytes_free -= block_meta->block_size;
       stats_.bytes_allocated += block_meta->block_size;
       return free_block;
     } else if (block_meta->block_size > to_allocate) {
@@ -95,6 +98,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       }
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
+      stats_.bytes_free -= block_meta->block_size;
       stats_.n_alive += 1;
       stats_.bytes_allocated += block_meta->block_size;
       return free_block;
@@ -180,6 +184,7 @@ void MarkAndSweep::sweep() {
       assert(stats_.bytes_allocated >= block_meta->block_size);
       stats_.n_alive -= 1;
       stats_.bytes_allocated -= block_meta->block_size;
+      stats_.bytes_free += block_meta->block_size;
     }
     p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(p) +
                                  block_meta->block_size);
