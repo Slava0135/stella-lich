@@ -166,19 +166,23 @@ void MarkAndSweep::mark() {
 }
 
 void MarkAndSweep::sweep() {
-  auto block_addr = reinterpret_cast<void *>(
-      reinterpret_cast<uintptr_t>(space_start_) + sizeof(Metadata));
-  while (block_addr < space_end_) {
-    auto block_idx = pointer_to_idx(block_addr);
+  auto p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(space_start_) +
+                                    sizeof(Metadata));
+  while (p < space_end_) {
+    auto block_idx = pointer_to_idx(p);
     auto block_meta = get_metadata(block_idx);
-    if (block_meta->mark == NOT_MARKED) {
+    if (block_meta->mark == MARKED) {
+      block_meta->mark = NOT_MARKED;
+    } else if (block_meta->mark == NOT_MARKED) {
+      *reinterpret_cast<void **>(p) = freelist_;
+      freelist_ = p;
       assert(stats_.n_alive > 0);
       assert(stats_.bytes_allocated >= block_meta->block_size);
       stats_.n_alive -= 1;
       stats_.bytes_allocated -= block_meta->block_size;
     }
-    block_addr = reinterpret_cast<void *>(
-        reinterpret_cast<uintptr_t>(block_addr) + block_meta->block_size);
+    p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(p) +
+                                 block_meta->block_size);
   }
 }
 
