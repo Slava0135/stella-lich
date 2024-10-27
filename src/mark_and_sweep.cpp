@@ -190,6 +190,7 @@ void MarkAndSweep::sweep() {
     if (block_meta->mark == MARKED) {
       block_meta->mark = NOT_MARKED;
     } else if (block_meta->mark == NOT_MARKED) {
+      block_meta->mark = FREE;
       *reinterpret_cast<void **>(p) = freelist_;
       freelist_ = p;
       assert(stats_.n_alive > 0);
