@@ -6,8 +6,11 @@
 namespace gc {
 
 MarkAndSweep::MarkAndSweep(const size_t max_memory)
-    : max_memory(max_memory),
-      stats_(Stats{.n_alive = 0, .n_roots = 0, .n_blocks = 1, .bytes_allocated = 0, .bytes_free = max_memory}) {
+    : max_memory(max_memory), stats_(Stats{.n_alive = 0,
+                                           .n_roots = 0,
+                                           .n_blocks = 1,
+                                           .bytes_allocated = 0,
+                                           .bytes_free = max_memory}) {
   space_ = std::make_unique<unsigned char[]>(max_memory);
   space_start_ = space_.get();
   assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
@@ -124,47 +127,53 @@ void MarkAndSweep::mark() {
     auto x_i = pointer_to_idx(x);
     auto x_meta = get_metadata(x_i);
     if (x_meta->mark == NOT_MARKED) {
-      void *tmp = nullptr;
-      x_meta->mark = MARKED;
-      x_meta->done = 0;
-      while (true) {
-        x_i = pointer_to_idx(x);
-        x_meta = get_metadata(x_i);
-        auto i = x_meta->done;
-        auto obj_size = x_meta->block_size - sizeof(Metadata);
-        assert(obj_size % sizeof(pointer_t) == 0);
-        auto field_n = obj_size / sizeof(pointer_t);
-        if (i < field_n) {
-          auto field_i_addr =
-              reinterpret_cast<uintptr_t>(x) + i * sizeof(pointer_t);
-          auto y = reinterpret_cast<void *>(field_i_addr);
-          if (is_in_space(y)) {
-            auto y_i = pointer_to_idx(y);
-            auto y_meta = get_metadata(y_i);
-            if (y_meta->mark == NOT_MARKED) {
-              *reinterpret_cast<void **>(field_i_addr) = tmp;
-              tmp = x;
-              x = y;
-              continue;
-            }
-          }
-          x_meta->done++;
-        } else {
-          auto y = x;
-          auto x = tmp;
-          if (!x) {
-            return;
-          }
-          x_i = pointer_to_idx(x);
-          x_meta = get_metadata(x_i);
-          auto i = x_meta->done;
-          auto field_i_addr =
-              reinterpret_cast<uintptr_t>(x) + i * sizeof(pointer_t);
-          tmp = reinterpret_cast<void *>(field_i_addr);
-          *reinterpret_cast<void **>(field_i_addr) = y;
-          x_meta->done++;
+      dfs(x);
+    }
+  }
+}
+
+void MarkAndSweep::dfs(void *x) {
+  auto x_i = pointer_to_idx(x);
+  auto x_meta = get_metadata(x_i);
+  void *tmp = nullptr;
+  x_meta->mark = MARKED;
+  x_meta->done = 0;
+  while (true) {
+    x_i = pointer_to_idx(x);
+    x_meta = get_metadata(x_i);
+    auto i = x_meta->done;
+    auto obj_size = x_meta->block_size - sizeof(Metadata);
+    assert(obj_size % sizeof(pointer_t) == 0);
+    auto field_n = obj_size / sizeof(pointer_t);
+    if (i < field_n) {
+      auto field_i_addr =
+          reinterpret_cast<uintptr_t>(x) + i * sizeof(pointer_t);
+      auto y = reinterpret_cast<void *>(field_i_addr);
+      if (is_in_space(y)) {
+        auto y_i = pointer_to_idx(y);
+        auto y_meta = get_metadata(y_i);
+        if (y_meta->mark == NOT_MARKED) {
+          *reinterpret_cast<void **>(field_i_addr) = tmp;
+          tmp = x;
+          x = y;
+          continue;
         }
       }
+      x_meta->done++;
+    } else {
+      auto y = x;
+      auto x = tmp;
+      if (!x) {
+        return;
+      }
+      x_i = pointer_to_idx(x);
+      x_meta = get_metadata(x_i);
+      auto i = x_meta->done;
+      auto field_i_addr =
+          reinterpret_cast<uintptr_t>(x) + i * sizeof(pointer_t);
+      tmp = reinterpret_cast<void *>(field_i_addr);
+      *reinterpret_cast<void **>(field_i_addr) = y;
+      x_meta->done++;
     }
   }
 }

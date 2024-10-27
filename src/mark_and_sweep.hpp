@@ -59,6 +59,7 @@ private:
   std::vector<void **> roots_;
   void *freelist_;
 
+  void dfs(void *x);
   void mark();
   void sweep();
 
