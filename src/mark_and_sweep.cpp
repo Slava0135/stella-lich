@@ -146,9 +146,8 @@ void MarkAndSweep::dfs(void *x) {
     assert(obj_size % sizeof(pointer_t) == 0);
     auto field_n = obj_size / sizeof(pointer_t);
     if (i < field_n) {
-      auto field_i_addr =
-          reinterpret_cast<uintptr_t>(x) + i * sizeof(pointer_t);
-      auto y = reinterpret_cast<void *>(field_i_addr);
+      auto field_i_addr = &space_[x_i + i * sizeof(pointer_t)];
+      auto y = *reinterpret_cast<void **>(field_i_addr);
       if (is_in_space(y)) {
         auto y_i = pointer_to_idx(y);
         auto y_meta = get_metadata(y_i);
@@ -156,6 +155,8 @@ void MarkAndSweep::dfs(void *x) {
           *reinterpret_cast<void **>(field_i_addr) = tmp;
           tmp = x;
           x = y;
+          y_meta->mark = MARKED;
+          y_meta->done = 0;
           continue;
         }
       }
@@ -169,9 +170,8 @@ void MarkAndSweep::dfs(void *x) {
       x_i = pointer_to_idx(x);
       x_meta = get_metadata(x_i);
       auto i = x_meta->done;
-      auto field_i_addr =
-          reinterpret_cast<uintptr_t>(x) + i * sizeof(pointer_t);
-      tmp = reinterpret_cast<void *>(field_i_addr);
+      auto field_i_addr = &space_[x_i + i * sizeof(pointer_t)];
+      tmp = *reinterpret_cast<void **>(field_i_addr);
       *reinterpret_cast<void **>(field_i_addr) = y;
       x_meta->done++;
     }
@@ -195,8 +195,7 @@ void MarkAndSweep::sweep() {
       stats_.bytes_allocated -= block_meta->block_size;
       stats_.bytes_free += block_meta->block_size;
     }
-    p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(p) +
-                                 block_meta->block_size);
+    p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
   }
 }
 
