@@ -1,6 +1,10 @@
 #include <assert.h>
 #include <catch2/catch_test_macros.hpp>
 #include <mark_and_sweep.hpp>
+#include <set>
+#include <string>
+
+#define NAME_OF(v) #v
 
 static_assert(sizeof(gc::MarkAndSweep::pointer_t) == 8);
 
@@ -138,6 +142,28 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   collector.push_root(reinterpret_cast<void **>(&a_37));
 
   collector.collect();
+
+  std::set<std::string> collected_objects;
+  for (auto obj : collector.get_stats().collected_objects) {
+    if (obj == a_12) {
+      collected_objects.insert(NAME_OF(a_12));
+    } else if (obj == a_15) {
+      collected_objects.insert(NAME_OF(a_15));
+    } else if (obj == b_7) {
+      collected_objects.insert(NAME_OF(b_7));
+    } else if (obj == a_37) {
+      collected_objects.insert(NAME_OF(a_37));
+    } else if (obj == a_59) {
+      collected_objects.insert(NAME_OF(a_59));
+    } else if (obj == b_9) {
+      collected_objects.insert(NAME_OF(b_9));
+    } else if (obj == a_20) {
+      collected_objects.insert(NAME_OF(a_20));
+    }
+  }
+  std::set<std::string> expected{NAME_OF(b_7), NAME_OF(b_9)};
+  REQUIRE(collected_objects == expected);
+
   REQUIRE(collector.get_stats().n_alive == 5);
   REQUIRE(collector.get_stats().n_blocks == 8);
   REQUIRE(collector.get_stats().bytes_allocated == 5 * (8 + 16));

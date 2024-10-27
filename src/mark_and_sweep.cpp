@@ -6,11 +6,13 @@
 namespace gc {
 
 MarkAndSweep::MarkAndSweep(const size_t max_memory)
-    : max_memory(max_memory), stats_(Stats{.n_alive = 0,
-                                           .n_roots = 0,
-                                           .n_blocks = 1,
-                                           .bytes_allocated = 0,
-                                           .bytes_free = max_memory}) {
+    : max_memory(max_memory),
+      stats_(Stats{.n_alive = 0,
+                   .n_roots = 0,
+                   .n_blocks = 1,
+                   .bytes_allocated = 0,
+                   .bytes_free = max_memory,
+                   .collected_objects = std::vector<void *>()}) {
   space_ = std::make_unique<unsigned char[]>(max_memory);
   space_start_ = space_.get();
   assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
@@ -179,6 +181,7 @@ void MarkAndSweep::dfs(void *x) {
 }
 
 void MarkAndSweep::sweep() {
+  stats_.collected_objects.clear();
   auto p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(space_start_) +
                                     sizeof(Metadata));
   while (p < space_end_) {
@@ -191,6 +194,7 @@ void MarkAndSweep::sweep() {
       freelist_ = p;
       assert(stats_.n_alive > 0);
       assert(stats_.bytes_allocated >= block_meta->block_size);
+      stats_.collected_objects.push_back(p);
       stats_.n_alive -= 1;
       stats_.bytes_allocated -= block_meta->block_size;
       stats_.bytes_free += block_meta->block_size;

@@ -2,10 +2,10 @@
 
 #include <assert.h>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <stddef.h>
 #include <vector>
-#include <limits>
 
 namespace gc {
 
@@ -17,6 +17,7 @@ public:
     size_t n_blocks;
     size_t bytes_allocated;
     size_t bytes_free;
+    std::vector<void *> collected_objects;
   };
   const size_t max_memory;
 
@@ -65,7 +66,7 @@ private:
 
   bool is_in_space(void const *obj) const;
   size_t pointer_to_idx(void const *obj) const;
-  Metadata* get_metadata(size_t obj_idx);
+  Metadata *get_metadata(size_t obj_idx);
 };
 
 } // namespace gc
