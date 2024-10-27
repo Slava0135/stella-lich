@@ -130,6 +130,12 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   b_7->z = b_9;
   b_9->z = b_7;
 
+  auto a_12_copy = a_12;
+  auto a_15_copy = a_15;
+  auto a_37_copy = a_37;
+  auto a_59_copy = a_59;
+  auto a_20_copy = a_20;
+
   REQUIRE(collector.get_stats().n_alive == 7);
   REQUIRE(collector.get_stats().n_blocks == 8);
   REQUIRE(collector.get_stats().bytes_allocated ==
@@ -142,6 +148,12 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   collector.push_root(reinterpret_cast<void **>(&a_37));
 
   collector.collect();
+
+  REQUIRE(a_12 == a_12_copy);
+  REQUIRE(a_15 == a_15_copy);
+  REQUIRE(a_37 == a_37_copy);
+  REQUIRE(a_59 == a_59_copy);
+  REQUIRE(a_20 == a_20_copy);
 
   std::set<std::string> collected_objects;
   for (auto obj : collector.get_stats().collected_objects) {
