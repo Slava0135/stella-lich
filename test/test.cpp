@@ -55,4 +55,16 @@ TEST_CASE("collect") {
     REQUIRE(collector.get_stats().n_alive == 0);
     REQUIRE(collector.get_stats().bytes_allocated == 0);
   }
+  SECTION("one alive object") {
+    gc::MarkAndSweep collector(1000);
+    REQUIRE(collector.get_stats().n_alive == 0);
+    void* obj = collector.allocate(8);
+    REQUIRE(obj != nullptr);
+    REQUIRE(collector.get_stats().n_alive == 1);
+    REQUIRE(collector.get_stats().bytes_allocated == 16);
+    collector.push_root(&obj);
+    collector.collect();
+    REQUIRE(collector.get_stats().n_alive == 1);
+    REQUIRE(collector.get_stats().bytes_allocated == 16);
+  }
 }

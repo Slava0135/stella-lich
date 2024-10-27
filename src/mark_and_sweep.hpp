@@ -18,8 +18,9 @@ public:
   };
   const size_t max_memory;
 
-  using done_t = uint32_t;
   using block_size_t = uint32_t;
+  using done_t = uint16_t;
+  using mark_t = uint16_t;
   using pointer_t = void *;
 
   MarkAndSweep(const size_t max_memory);
@@ -34,7 +35,19 @@ public:
   void collect();
 
 private:
-  const done_t FREE_BLOCK{std::numeric_limits<done_t>::max()};
+  enum Mark : mark_t {
+    NOT_MARKED,
+    MARKED,
+    FREE,
+  };
+
+  struct Metadata {
+    block_size_t block_size;
+    done_t done;
+    Mark mark;
+  };
+
+  static_assert(sizeof(Metadata) == sizeof(pointer_t));
 
   const void *space_start_;
   const void *space_end_;
@@ -49,16 +62,7 @@ private:
 
   bool is_in_space(void const *obj) const;
   size_t pointer_to_idx(void const *obj) const;
-
-  void set_block_size(size_t obj_idx, block_size_t size);
-  size_t get_block_size(size_t obj_idx) const;
-
-  void set_done_value(size_t obj_idx, done_t value);
-  size_t get_done_value(size_t obj_idx) const;
-
-  constexpr size_t meta_info_size() const {
-    return sizeof(done_t) + sizeof(block_size_t);
-  }
+  Metadata* get_metadata(size_t obj_idx);
 };
 
 } // namespace gc
