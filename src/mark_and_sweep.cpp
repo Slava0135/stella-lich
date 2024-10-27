@@ -5,6 +5,21 @@
 
 namespace gc {
 
+MarkAndSweep::MarkAndSweep(const size_t max_memory)
+    : max_memory(max_memory),
+      stats_(Stats{.n_alive = 0, .n_roots = 0, .bytes_allocated = 0}) {
+  assert(meta_info_size() == sizeof(pointer_t));
+  space_ = std::make_unique<unsigned char[]>(max_memory);
+  space_start_ = space_.get();
+  assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
+         "space start address must be aligned to pointer size");
+  space_end_ = &space_[max_memory];
+  auto first_block_idx = meta_info_size();
+  freelist_ = &space_[first_block_idx];
+  set_block_size(first_block_idx, max_memory);
+  set_done_value(first_block_idx, FREE_BLOCK);
+}
+
 MarkAndSweep::Stats const &MarkAndSweep::get_stats() const {
   return this->stats_;
 }
@@ -62,7 +77,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       auto new_block_idx = block_idx + to_allocate;
       auto new_block_size = block_size - to_allocate;
       set_block_size(new_block_idx, new_block_size);
-      set_done_value(block_idx, 0);
+      set_done_value(new_block_idx, FREE_BLOCK);
       *prev_free_block = &space_[new_block_idx];
       stats_.n_alive += 1;
       stats_.bytes_allocated += to_allocate;
@@ -90,9 +105,7 @@ void MarkAndSweep::collect() {
   sweep();
 }
 
-void MarkAndSweep::mark() {
-  
-}
+void MarkAndSweep::mark() {}
 
 void MarkAndSweep::sweep() {
   auto block_addr = reinterpret_cast<void *>(

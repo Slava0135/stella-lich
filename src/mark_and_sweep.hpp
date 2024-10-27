@@ -5,6 +5,7 @@
 #include <memory>
 #include <stddef.h>
 #include <vector>
+#include <limits>
 
 namespace gc {
 
@@ -21,19 +22,7 @@ public:
   using block_size_t = uint32_t;
   using pointer_t = void *;
 
-  MarkAndSweep(const size_t max_memory)
-      : max_memory(max_memory),
-        stats_(Stats{.n_alive = 0, .n_roots = 0, .bytes_allocated = 0}) {
-    assert(meta_info_size() == sizeof(pointer_t));
-    space_ = std::make_unique<unsigned char[]>(max_memory);
-    space_start_ = space_.get();
-    assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
-           "space start address must be aligned to pointer size");
-    space_end_ = &space_[max_memory];
-    auto first_block_idx = meta_info_size();
-    freelist_ = &space_[first_block_idx];
-    set_block_size(first_block_idx, max_memory);
-  }
+  MarkAndSweep(const size_t max_memory);
 
   Stats const &get_stats() const;
   const std::vector<void **> &get_roots() const;
@@ -45,6 +34,8 @@ public:
   void collect();
 
 private:
+  const done_t FREE_BLOCK{std::numeric_limits<done_t>::max()};
+
   const void *space_start_;
   const void *space_end_;
 
