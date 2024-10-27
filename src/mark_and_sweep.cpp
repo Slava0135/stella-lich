@@ -112,6 +112,57 @@ void MarkAndSweep::collect() {
 }
 
 void MarkAndSweep::mark() {
+  for (auto root : roots_) {
+    auto x = *root;
+    if (!is_in_space(x)) {
+      continue;
+    }
+    auto x_i = pointer_to_idx(x);
+    auto x_meta = get_metadata(x_i);
+    if (x_meta->mark == NOT_MARKED) {
+      void *tmp = nullptr;
+      x_meta->mark = MARKED;
+      x_meta->done = 0;
+      while (true) {
+        x_i = pointer_to_idx(x);
+        x_meta = get_metadata(x_i);
+        auto i = x_meta->done;
+        auto obj_size = x_meta->block_size - sizeof(Metadata);
+        assert(obj_size % sizeof(pointer_t) == 0);
+        auto field_n = obj_size / sizeof(pointer_t);
+        if (i < field_n) {
+          auto field_i_addr =
+              reinterpret_cast<uintptr_t>(x) + i * sizeof(pointer_t);
+          auto y = reinterpret_cast<void *>(field_i_addr);
+          if (is_in_space(y)) {
+            auto y_i = pointer_to_idx(y);
+            auto y_meta = get_metadata(y_i);
+            if (y_meta->mark == NOT_MARKED) {
+              *reinterpret_cast<void **>(field_i_addr) = tmp;
+              tmp = x;
+              x = y;
+              continue;
+            }
+          }
+          x_meta->done++;
+        } else {
+          auto y = x;
+          auto x = tmp;
+          if (!x) {
+            return;
+          }
+          x_i = pointer_to_idx(x);
+          x_meta = get_metadata(x_i);
+          auto i = x_meta->done;
+          auto field_i_addr =
+              reinterpret_cast<uintptr_t>(x) + i * sizeof(pointer_t);
+          tmp = reinterpret_cast<void *>(field_i_addr);
+          *reinterpret_cast<void **>(field_i_addr) = y;
+          x_meta->done++;
+        }
+      }
+    }
+  }
 }
 
 void MarkAndSweep::sweep() {
@@ -154,7 +205,13 @@ size_t MarkAndSweep::pointer_to_idx(void const *obj) const {
 
 MarkAndSweep::Metadata *MarkAndSweep::get_metadata(size_t obj_idx) {
   size_t metadata_idx = obj_idx - sizeof(Metadata);
-  return reinterpret_cast<Metadata *>(&space_[metadata_idx]);
+  auto res = reinterpret_cast<Metadata *>(&space_[metadata_idx]);
+  assert(res->block_size <= max_memory &&
+         "potential memory corruption detected");
+  assert(
+      (res->mark == NOT_MARKED || res->mark == MARKED || res->mark == FREE) &&
+      "potential memory corruption detected");
+  return res;
 }
 
 } // namespace gc
