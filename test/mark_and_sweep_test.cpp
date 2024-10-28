@@ -128,6 +128,7 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   const size_t size = 1000;
   gc::MarkAndSweep collector(size, false);
   gc::Stats stats;
+  std::string dump;
 
   auto a_12 = reinterpret_cast<A *>(collector.allocate(sizeof(A)));
   auto a_15 = reinterpret_cast<A *>(collector.allocate(sizeof(A)));
@@ -159,9 +160,11 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
 
   collector.push_root(reinterpret_cast<void **>(&a_15));
   collector.push_root(reinterpret_cast<void **>(&a_37));
+  dump = collector.dump();
 
   collector.collect();
   stats = collector.get_stats();
+  dump = collector.dump();
 
   REQUIRE(a_12 == a_12_copy);
   REQUIRE(a_15 == a_15_copy);
