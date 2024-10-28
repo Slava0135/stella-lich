@@ -9,15 +9,19 @@
 
 namespace gc {
 
+struct Stats {
+  size_t n_blocks_allocated;
+  size_t n_blocks_free;
+  size_t n_blocks_total;
+
+  size_t bytes_allocated;
+  size_t bytes_free;
+
+  std::vector<void *> collected_objects;
+};
+
 class MarkAndSweep {
 public:
-  struct Stats {
-    size_t n_alive;
-    size_t n_blocks;
-    size_t bytes_allocated;
-    size_t bytes_free;
-    std::vector<void *> collected_objects;
-  };
   const size_t max_memory;
 
   using block_size_t = uint32_t;
@@ -27,7 +31,7 @@ public:
 
   MarkAndSweep(const size_t max_memory);
 
-  Stats const &get_stats() const;
+  Stats get_stats() const;
   const std::vector<void **> &get_roots() const;
 
   void push_root(void **root);

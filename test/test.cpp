@@ -1,4 +1,5 @@
 #include <assert.h>
+
 #include <catch2/catch_test_macros.hpp>
 #include <mark_and_sweep.hpp>
 #include <set>
@@ -19,10 +20,13 @@ struct B {
 
 TEST_CASE("no objects") {
   gc::MarkAndSweep collector(11);
-  REQUIRE(collector.get_stats().n_alive == 0);
-  REQUIRE(collector.get_stats().n_blocks == 1);
-  REQUIRE(collector.get_stats().bytes_allocated == 0);
-  REQUIRE(collector.get_stats().bytes_free == 11);
+  auto stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 0);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 0);
+  REQUIRE(stats.bytes_free == 11);
+  REQUIRE(stats.n_blocks_total ==
+          stats.n_blocks_allocated + stats.n_blocks_free);
 }
 
 TEST_CASE("push/pop roots") {
@@ -42,77 +46,88 @@ TEST_CASE("push/pop roots") {
 
 TEST_CASE("allocate") {
   gc::MarkAndSweep collector(48);
+  gc::Stats stats;
   REQUIRE(collector.allocate(1) != nullptr);
-  REQUIRE(collector.get_stats().n_alive == 1);
-  REQUIRE(collector.get_stats().n_blocks == 2);
-  REQUIRE(collector.get_stats().bytes_allocated == 16);
-  REQUIRE(collector.get_stats().bytes_free == 32);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 16);
+  REQUIRE(stats.bytes_free == 32);
+  REQUIRE(stats.n_blocks_total ==
+          stats.n_blocks_allocated + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) != nullptr);
-  REQUIRE(collector.get_stats().n_alive == 2);
-  REQUIRE(collector.get_stats().n_blocks == 3);
-  REQUIRE(collector.get_stats().bytes_allocated == 32);
-  REQUIRE(collector.get_stats().bytes_free == 16);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 2);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 32);
+  REQUIRE(stats.bytes_free == 16);
+  REQUIRE(stats.n_blocks_total ==
+          stats.n_blocks_allocated + stats.n_blocks_free);
   REQUIRE(collector.allocate(9) == nullptr);
-  REQUIRE(collector.get_stats().n_alive == 2);
-  REQUIRE(collector.get_stats().n_blocks == 3);
-  REQUIRE(collector.get_stats().bytes_allocated == 32);
-  REQUIRE(collector.get_stats().bytes_free == 16);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 2);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 32);
+  REQUIRE(stats.bytes_free == 16);
+  REQUIRE(stats.n_blocks_total ==
+          stats.n_blocks_allocated + stats.n_blocks_free);
 }
 
 TEST_CASE("collect - no alive objects") {
-  gc::MarkAndSweep collector(1000);
+  const size_t size = 1000;
+  gc::MarkAndSweep collector(size);
+  gc::Stats stats;
   REQUIRE(collector.allocate(8) != nullptr);
-  REQUIRE(collector.get_stats().n_alive == 1);
-  REQUIRE(collector.get_stats().n_blocks == 2);
-  REQUIRE(collector.get_stats().bytes_allocated == 16);
-  REQUIRE(collector.get_stats().bytes_allocated +
-              collector.get_stats().bytes_free ==
-          1000);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 16);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   REQUIRE(collector.allocate(16) != nullptr);
-  REQUIRE(collector.get_stats().n_alive == 2);
-  REQUIRE(collector.get_stats().n_blocks == 3);
-  REQUIRE(collector.get_stats().bytes_allocated == 16 + 24);
-  REQUIRE(collector.get_stats().bytes_allocated +
-              collector.get_stats().bytes_free ==
-          1000);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 2);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 16 + 24);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   REQUIRE(collector.allocate(24) != nullptr);
-  REQUIRE(collector.get_stats().n_alive == 3);
-  REQUIRE(collector.get_stats().n_blocks == 4);
-  REQUIRE(collector.get_stats().bytes_allocated == 16 + 24 + 32);
-  REQUIRE(collector.get_stats().bytes_allocated +
-              collector.get_stats().bytes_free ==
-          1000);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 3);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 16 + 24 + 32);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   collector.collect();
-  REQUIRE(collector.get_stats().n_alive == 0);
-  REQUIRE(collector.get_stats().n_blocks == 4);
-  REQUIRE(collector.get_stats().bytes_allocated == 0);
-  REQUIRE(collector.get_stats().bytes_allocated +
-              collector.get_stats().bytes_free ==
-          1000);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 0);
+  REQUIRE(stats.n_blocks_free == 4);
+  REQUIRE(stats.bytes_allocated == 0);
+  REQUIRE(stats.bytes_free == size);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
 }
 
 TEST_CASE("collect - one alive object") {
-  gc::MarkAndSweep collector(1000);
+  const size_t size = 1000;
+  gc::MarkAndSweep collector(size);
+  gc::Stats stats;
   void *obj = collector.allocate(8);
+  stats = collector.get_stats();
   REQUIRE(obj != nullptr);
-  REQUIRE(collector.get_stats().n_alive == 1);
-  REQUIRE(collector.get_stats().n_blocks == 2);
-  REQUIRE(collector.get_stats().bytes_allocated == 16);
-  REQUIRE(collector.get_stats().bytes_allocated +
-              collector.get_stats().bytes_free ==
-          1000);
+  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 16);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   collector.push_root(&obj);
   collector.collect();
-  REQUIRE(collector.get_stats().n_alive == 1);
-  REQUIRE(collector.get_stats().n_blocks == 2);
-  REQUIRE(collector.get_stats().bytes_allocated == 16);
-  REQUIRE(collector.get_stats().bytes_allocated +
-              collector.get_stats().bytes_free ==
-          1000);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.bytes_allocated == 16);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
 }
 
 TEST_CASE("collect - example 13.4 (A. Appel)") {
-  gc::MarkAndSweep collector(1000);
+  const size_t size = 1000;
+  gc::MarkAndSweep collector(size);
+  gc::Stats stats;
 
   auto a_12 = reinterpret_cast<A *>(collector.allocate(sizeof(A)));
   auto a_15 = reinterpret_cast<A *>(collector.allocate(sizeof(A)));
@@ -136,18 +151,17 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   auto a_59_copy = a_59;
   auto a_20_copy = a_20;
 
-  REQUIRE(collector.get_stats().n_alive == 7);
-  REQUIRE(collector.get_stats().n_blocks == 8);
-  REQUIRE(collector.get_stats().bytes_allocated ==
-          (5 * (8 + 16) + 2 * (8 + 8)));
-  REQUIRE(collector.get_stats().bytes_allocated +
-              collector.get_stats().bytes_free ==
-          1000);
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 7);
+  REQUIRE(stats.n_blocks_total == 8);
+  REQUIRE(stats.bytes_allocated == (5 * (8 + 16) + 2 * (8 + 8)));
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == 1000);
 
   collector.push_root(reinterpret_cast<void **>(&a_15));
   collector.push_root(reinterpret_cast<void **>(&a_37));
 
   collector.collect();
+  stats = collector.get_stats();
 
   REQUIRE(a_12 == a_12_copy);
   REQUIRE(a_15 == a_15_copy);
@@ -156,7 +170,7 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   REQUIRE(a_20 == a_20_copy);
 
   std::set<std::string> collected_objects;
-  for (auto obj : collector.get_stats().collected_objects) {
+  for (auto obj : stats.collected_objects) {
     if (obj == a_12) {
       collected_objects.insert(NAME_OF(a_12));
     } else if (obj == a_15) {
@@ -176,10 +190,10 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   std::set<std::string> expected{NAME_OF(b_7), NAME_OF(b_9)};
   REQUIRE(collected_objects == expected);
 
-  REQUIRE(collector.get_stats().n_alive == 5);
-  REQUIRE(collector.get_stats().n_blocks == 8);
-  REQUIRE(collector.get_stats().bytes_allocated == 5 * (8 + 16));
-  REQUIRE(collector.get_stats().bytes_allocated +
-              collector.get_stats().bytes_free ==
-          1000);
+  REQUIRE(stats.n_blocks_allocated == 5);
+  REQUIRE(stats.n_blocks_free == 3);
+  REQUIRE(stats.n_blocks_total ==
+          stats.n_blocks_allocated + stats.n_blocks_free);
+  REQUIRE(stats.bytes_allocated == 5 * (8 + 16));
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
 }

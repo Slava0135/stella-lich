@@ -1,14 +1,16 @@
 #include "mark_and_sweep.hpp"
 
 #include <assert.h>
+
 #include <limits>
 
 namespace gc {
 
 MarkAndSweep::MarkAndSweep(const size_t max_memory)
     : max_memory(max_memory),
-      stats_(Stats{.n_alive = 0,
-                   .n_blocks = 1,
+      stats_(Stats{.n_blocks_allocated = 0,
+                   .n_blocks_free = 1,
+                   .n_blocks_total = 1,
                    .bytes_allocated = 0,
                    .bytes_free = max_memory,
                    .collected_objects = std::vector<void *>()}) {
@@ -25,17 +27,12 @@ MarkAndSweep::MarkAndSweep(const size_t max_memory)
   metadata->mark = FREE;
 }
 
-MarkAndSweep::Stats const &MarkAndSweep::get_stats() const {
-  return this->stats_;
-}
+Stats MarkAndSweep::get_stats() const { return this->stats_; }
 
-void MarkAndSweep::push_root(void **root) {
-  this->roots_.push_back(root);
-}
+void MarkAndSweep::push_root(void **root) { this->roots_.push_back(root); }
 
 void MarkAndSweep::pop_root(void **root) {
-  assert(this->roots_.size() > 0 &&
-         "roots must not be empty when poping root");
+  assert(this->roots_.size() > 0 && "roots must not be empty when poping root");
   assert(this->roots_.back() == root &&
          "the root must be at the top of the stack");
   this->roots_.pop_back();
@@ -67,30 +64,37 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
     auto block_meta = get_metadata(block_idx);
     assert(block_meta->mark == FREE);
     if (block_meta->block_size == to_allocate) {
+
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
-      stats_.n_alive += 1;
+
+      stats_.n_blocks_free--;
+      stats_.n_blocks_allocated++;
       stats_.bytes_free -= block_meta->block_size;
       stats_.bytes_allocated += block_meta->block_size;
+
       return free_block;
     } else if (block_meta->block_size > to_allocate &&
                block_meta->block_size - to_allocate >=
                    sizeof(Metadata) + sizeof(pointer_t)) {
+
       // take required space and split remaining into new block
       auto new_block_idx = block_idx + to_allocate;
       auto new_block_meta = get_metadata(new_block_idx);
       new_block_meta->block_size = block_meta->block_size - to_allocate;
       new_block_meta->done = 0;
       new_block_meta->mark = FREE;
-      stats_.n_blocks += 1;
       *prev_free_block = &space_[new_block_idx];
 
       block_meta->block_size = to_allocate;
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
-      stats_.n_alive += 1;
+
+      stats_.n_blocks_total++;
+      stats_.n_blocks_allocated++;
       stats_.bytes_free -= block_meta->block_size;
       stats_.bytes_allocated += block_meta->block_size;
+
       return free_block;
     } else if (block_meta->block_size > to_allocate) {
       // can't split block, fill the block instead and zero unused part
@@ -98,11 +102,15 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
            idx < block_idx - block_meta->block_size; idx++) {
         space_[idx] = 0;
       }
+
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
+
+      stats_.n_blocks_allocated++;
+      stats_.n_blocks_free--;
       stats_.bytes_free -= block_meta->block_size;
-      stats_.n_alive += 1;
       stats_.bytes_allocated += block_meta->block_size;
+
       return free_block;
     }
     prev_free_block = reinterpret_cast<void **>(&space_[block_idx]);
@@ -190,10 +198,11 @@ void MarkAndSweep::sweep() {
       block_meta->mark = FREE;
       *reinterpret_cast<void **>(p) = freelist_;
       freelist_ = p;
-      assert(stats_.n_alive > 0);
+      assert(stats_.n_blocks_allocated > 0);
       assert(stats_.bytes_allocated >= block_meta->block_size);
       stats_.collected_objects.push_back(p);
-      stats_.n_alive -= 1;
+      stats_.n_blocks_allocated--;
+      stats_.n_blocks_free++;
       stats_.bytes_allocated -= block_meta->block_size;
       stats_.bytes_free += block_meta->block_size;
     }
@@ -233,4 +242,4 @@ MarkAndSweep::Metadata *MarkAndSweep::get_metadata(size_t obj_idx) {
   return res;
 }
 
-} // namespace gc
+}  // namespace gc
