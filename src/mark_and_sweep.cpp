@@ -14,17 +14,21 @@ MarkAndSweep::MarkAndSweep(const size_t max_memory)
                    .bytes_allocated = 0,
                    .bytes_free = max_memory,
                    .collected_objects = std::vector<void *>()}) {
+
   space_ = std::make_unique<unsigned char[]>(max_memory);
   space_start_ = space_.get();
+  space_end_ = &space_[max_memory];
   assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
          "space start address must be aligned to pointer size");
-  space_end_ = &space_[max_memory];
+
   auto first_block_idx = sizeof(Metadata);
-  freelist_ = &space_[first_block_idx];
   auto metadata = get_metadata(first_block_idx);
   metadata->block_size = max_memory;
   metadata->done = 0;
   metadata->mark = FREE;
+
+  *reinterpret_cast<void **>(&space_[first_block_idx]) = nullptr;
+  freelist_ = &space_[first_block_idx];
 }
 
 Stats MarkAndSweep::get_stats() const { return this->stats_; }
@@ -64,37 +68,39 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
     auto block_meta = get_metadata(block_idx);
     assert(block_meta->mark == FREE);
     if (block_meta->block_size == to_allocate) {
-
+      // update meta
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
-
+      // update stats
       stats_.n_blocks_free--;
       stats_.n_blocks_allocated++;
       stats_.bytes_free -= block_meta->block_size;
       stats_.bytes_allocated += block_meta->block_size;
-
+      // remove from freelist
+      *prev_free_block = *reinterpret_cast<void **>(space_[block_idx]);
+      assert(is_valid_free_block(*prev_free_block));
       return free_block;
     } else if (block_meta->block_size > to_allocate &&
                block_meta->block_size - to_allocate >=
                    sizeof(Metadata) + sizeof(pointer_t)) {
-
       // take required space and split remaining into new block
       auto new_block_idx = block_idx + to_allocate;
       auto new_block_meta = get_metadata(new_block_idx);
       new_block_meta->block_size = block_meta->block_size - to_allocate;
       new_block_meta->done = 0;
       new_block_meta->mark = FREE;
-      *prev_free_block = &space_[new_block_idx];
-
+      // update meta
       block_meta->block_size = to_allocate;
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
-
+      // update stats
       stats_.n_blocks_total++;
       stats_.n_blocks_allocated++;
       stats_.bytes_free -= block_meta->block_size;
       stats_.bytes_allocated += block_meta->block_size;
-
+      // remove from freelist
+      *prev_free_block = &space_[new_block_idx];
+      assert(is_valid_free_block(*prev_free_block));
       return free_block;
     } else if (block_meta->block_size > to_allocate) {
       // can't split block, fill the block instead and zero unused part
@@ -102,15 +108,17 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
            idx < block_idx - block_meta->block_size; idx++) {
         space_[idx] = 0;
       }
-
+      // update meta
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
-
+      // update stats
       stats_.n_blocks_allocated++;
       stats_.n_blocks_free--;
       stats_.bytes_free -= block_meta->block_size;
       stats_.bytes_allocated += block_meta->block_size;
-
+      // remove from freelist
+      *prev_free_block = *reinterpret_cast<void **>(space_[block_idx]);
+      assert(is_valid_free_block(*prev_free_block));
       return free_block;
     }
     prev_free_block = reinterpret_cast<void **>(&space_[block_idx]);
@@ -221,6 +229,15 @@ bool MarkAndSweep::is_in_space(void const *obj) const {
              reinterpret_cast<uintptr_t>(space_end_);
 }
 
+bool MarkAndSweep::is_valid_free_block(void const *obj) const {
+  if (!is_in_space(obj)) {
+    return false;
+  }
+  auto idx = pointer_to_idx(obj);
+  auto meta = get_metadata(idx);
+  return meta->mark == FREE;
+}
+
 size_t MarkAndSweep::pointer_to_idx(void const *obj) const {
   assert(is_in_space(obj));
   auto idx = reinterpret_cast<uintptr_t>(obj) -
@@ -231,7 +248,7 @@ size_t MarkAndSweep::pointer_to_idx(void const *obj) const {
   return idx;
 }
 
-MarkAndSweep::Metadata *MarkAndSweep::get_metadata(size_t obj_idx) {
+MarkAndSweep::Metadata *MarkAndSweep::get_metadata(size_t obj_idx) const {
   size_t metadata_idx = obj_idx - sizeof(Metadata);
   auto res = reinterpret_cast<Metadata *>(&space_[metadata_idx]);
   assert(res->block_size <= max_memory &&

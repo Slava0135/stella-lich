@@ -68,8 +68,10 @@ private:
   void sweep();
 
   bool is_in_space(void const *obj) const;
+  bool is_valid_free_block(void const *obj) const;
+
   size_t pointer_to_idx(void const *obj) const;
-  Metadata *get_metadata(size_t obj_idx);
+  Metadata *get_metadata(size_t obj_idx) const;
 };
 
 } // namespace gc
