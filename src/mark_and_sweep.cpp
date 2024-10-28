@@ -402,9 +402,17 @@ std::string MarkAndSweep::dump() const {
       auto block_idx = pointer_to_idx(p);
       auto block_meta = get_metadata(block_idx);
       for (size_t i = 0; i < block_meta->block_size; i += sizeof(pointer_t)) {
-        auto v = reinterpret_cast<void *>(&space_[block_idx + i - sizeof(Metadata)]);
-        blocks.add_row({pointer_to_hex(v),
-                        pointer_to_hex(*reinterpret_cast<void **>(v)), ""});
+        auto v =
+            reinterpret_cast<void *>(&space_[block_idx + i - sizeof(Metadata)]);
+        if (i == 0) {
+          auto status = block_meta->mark == FREE ? "FREE" : "USED";
+          blocks.add_row(
+              {pointer_to_hex(v), pointer_to_hex(*reinterpret_cast<void **>(v)),
+               std::format("size: {:10}   {}", block_meta->block_size, status)});
+        } else {
+          blocks.add_row({pointer_to_hex(v),
+                          pointer_to_hex(*reinterpret_cast<void **>(v)), ""});
+        }
       }
       blocks.separator();
       p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
