@@ -165,7 +165,7 @@ void MarkAndSweep::dfs(void *x) {
       x_meta->done++;
     } else {
       auto y = x;
-      auto x = tmp;
+      x = tmp;
       if (!x) {
         return;
       }
