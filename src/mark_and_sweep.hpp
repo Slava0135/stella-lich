@@ -17,6 +17,9 @@ struct Stats {
   size_t bytes_allocated;
   size_t bytes_free;
 
+  size_t reads;
+  size_t writes;
+
   std::vector<void *> collected_objects;
 };
 
@@ -40,6 +43,11 @@ public:
 
   void *allocate(std::size_t bytes);
   void collect();
+
+  void read();
+  void write();
+
+  std::string dump() const;
 
 private:
   enum Mark : mark_t {

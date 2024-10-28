@@ -4,6 +4,7 @@
 #include <mark_and_sweep.hpp>
 #include <set>
 #include <string>
+#include <iostream>
 
 #define NAME_OF(v) #v
 
@@ -152,19 +153,22 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   auto a_59_copy = a_59;
   auto a_20_copy = a_20;
 
+  collector.push_root(reinterpret_cast<void **>(&a_15));
+  collector.push_root(reinterpret_cast<void **>(&a_37));
+
   stats = collector.get_stats();
+  dump = collector.dump();
+  std::cout << dump << std::endl;
   REQUIRE(stats.n_blocks_allocated == 7);
   REQUIRE(stats.n_blocks_total == 8);
   REQUIRE(stats.bytes_allocated == (5 * (8 + 16) + 2 * (8 + 8)));
   REQUIRE(stats.bytes_allocated + stats.bytes_free == 1000);
 
-  collector.push_root(reinterpret_cast<void **>(&a_15));
-  collector.push_root(reinterpret_cast<void **>(&a_37));
-  dump = collector.dump();
-
   collector.collect();
+
   stats = collector.get_stats();
   dump = collector.dump();
+  std::cout << dump << std::endl;
 
   REQUIRE(a_12 == a_12_copy);
   REQUIRE(a_15 == a_15_copy);
@@ -212,6 +216,8 @@ TEST_CASE("allocate / collect - take all memory") {
   REQUIRE(collector.allocate(8) != nullptr);
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
+  dump = collector.dump();
+  std::cout << dump << std::endl;
   REQUIRE(stats.n_blocks_allocated == 4);
   REQUIRE(stats.n_blocks_free == 0);
   REQUIRE(stats.bytes_allocated == size);
@@ -219,11 +225,11 @@ TEST_CASE("allocate / collect - take all memory") {
   REQUIRE(stats.n_blocks_total ==
           stats.n_blocks_allocated + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
-  dump = collector.dump();
 
   collector.collect();
   stats = collector.get_stats();
   dump = collector.dump();
+  std::cout << dump << std::endl;
   REQUIRE(stats.n_blocks_allocated == 0);
   REQUIRE(stats.n_blocks_free == 4);
   REQUIRE(stats.bytes_allocated == 0);
@@ -237,6 +243,7 @@ TEST_CASE("allocate / collect - take all memory") {
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
   dump = collector.dump();
+  std::cout << dump << std::endl;
   REQUIRE(stats.n_blocks_allocated == 4);
   REQUIRE(stats.n_blocks_free == 0);
   REQUIRE(stats.bytes_allocated == size);
@@ -248,6 +255,7 @@ TEST_CASE("allocate / collect - take all memory") {
   collector.collect();
   stats = collector.get_stats();
   dump = collector.dump();
+  std::cout << dump << std::endl;
   REQUIRE(stats.n_blocks_allocated == 0);
   REQUIRE(stats.n_blocks_free == 4);
   REQUIRE(stats.bytes_allocated == 0);
@@ -260,6 +268,7 @@ TEST_CASE("merge blocks") {
   const size_t size = 64;
   gc::MarkAndSweep collector(size, true);
   gc::Stats stats;
+  std::string dump;
 
   REQUIRE(collector.allocate(8) != nullptr);
   void *obj = collector.allocate(8);
@@ -275,6 +284,8 @@ TEST_CASE("merge blocks") {
   REQUIRE(stats.n_blocks_total ==
           stats.n_blocks_allocated + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
+  dump = collector.dump();
+  std::cout << dump << std::endl;
 
   collector.collect();
   stats = collector.get_stats();
@@ -284,6 +295,8 @@ TEST_CASE("merge blocks") {
   REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
           stats.n_blocks_allocated + stats.n_blocks_free);
+  dump = collector.dump();
+  std::cout << dump << std::endl;
 
   REQUIRE(collector.allocate(24) != nullptr);
   stats = collector.get_stats();
@@ -293,4 +306,6 @@ TEST_CASE("merge blocks") {
   REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
           stats.n_blocks_allocated + stats.n_blocks_free);
+  dump = collector.dump();
+  std::cout << dump << std::endl;
 }

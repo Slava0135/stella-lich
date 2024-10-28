@@ -2,7 +2,10 @@
 
 #include <assert.h>
 
+#include <format>
 #include <limits>
+
+#include "tables.hpp"
 
 namespace gc {
 
@@ -14,6 +17,8 @@ MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks)
                    .n_blocks_total = 1,
                    .bytes_allocated = 0,
                    .bytes_free = max_memory,
+                   .reads = 0,
+                   .writes = 0,
                    .collected_objects = std::vector<void *>()}) {
   space_ = std::make_unique<unsigned char[]>(max_memory);
   space_start_ = space_.get();
@@ -293,6 +298,39 @@ MarkAndSweep::Metadata *MarkAndSweep::get_metadata(size_t obj_idx) const {
       (res->mark == NOT_MARKED || res->mark == MARKED || res->mark == FREE) &&
       "potential memory corruption detected");
   return res;
+}
+
+void MarkAndSweep::read() { stats_.reads++; }
+
+void MarkAndSweep::write() { stats_.writes++; }
+
+std::string MarkAndSweep::dump() const {
+  std::string dump;
+  size_t fst, snd, thd;
+
+  dump.append("STATS\n");
+  fst = 26;
+  snd = 16;
+  thd = 17;
+  tables::Table stats({fst, snd, thd});
+
+  stats.separator();
+  stats.add_row({"COLLECTIONS", std::format("{} times", 0), ""});
+  stats.separator();
+  stats.add_row({"MEMORY USED", std::format("{} bytes", stats_.bytes_allocated),
+                 std::format("{} blocks", stats_.n_blocks_allocated)});
+  stats.add_row({"MEMORY USED (w/o metadata)", std::format("{} bytes", 0), ""});
+  stats.add_row({"MEMORY FREE", std::format("{} bytes", stats_.bytes_free),
+                 std::format("{} blocks", stats_.n_blocks_free)});
+  stats.add_row({"MEMORY FREE (w/o metadata)", std::format("{} bytes", 0), ""});
+  stats.separator();
+  stats.add_row({"READS / WRITES", std::format("{} reads", stats_.reads),
+                 std::format("{} writes", stats_.writes)});
+  stats.separator();
+
+  dump.append(stats.to_string() + "\n");
+
+  return dump;
 }
 
 }  // namespace gc
