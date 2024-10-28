@@ -304,6 +304,43 @@ void MarkAndSweep::read() { stats_.reads++; }
 
 void MarkAndSweep::write() { stats_.writes++; }
 
+std::string pointer_to_hex(void *ptr) {
+  auto v = reinterpret_cast<uintptr_t>(ptr);
+  std::string res;
+  for (size_t i = 0; i < 2 * sizeof(void *); i++) {
+    if (i > 0 && i % 2 == 0) {
+      res.append(" ");
+    }
+    auto digit = v % 16;
+    switch (digit) {
+      case 10:
+        res.append("a");
+        break;
+      case 11:
+        res.append("b");
+        break;
+      case 12:
+        res.append("c");
+        break;
+      case 13:
+        res.append("d");
+        break;
+      case 14:
+        res.append("e");
+        break;
+      case 15:
+        res.append("f");
+        break;
+      default:
+        res.append(std::format("{}", digit));
+        break;
+    }
+    v = v >> 4;
+  }
+  std::reverse(res.begin(), res.end());
+  return res;
+}
+
 std::string MarkAndSweep::dump() const {
   std::string dump;
   size_t fst, snd, thd;
@@ -313,7 +350,6 @@ std::string MarkAndSweep::dump() const {
   snd = 16;
   thd = 17;
   tables::Table stats({fst, snd, thd});
-
   stats.separator();
   stats.add_row({"COLLECTIONS", std::format("{} times", 0), ""});
   stats.separator();
@@ -327,8 +363,22 @@ std::string MarkAndSweep::dump() const {
   stats.add_row({"READS / WRITES", std::format("{} reads", stats_.reads),
                  std::format("{} writes", stats_.writes)});
   stats.separator();
-
   dump.append(stats.to_string() + "\n");
+
+  dump.append("\nROOTS\n");
+  fst = 3;
+  snd = 23;
+  thd = 23;
+  tables::Table roots({fst, snd, thd});
+  roots.separator();
+  roots.add_row({"IDX", "ADDRESS", "VALUE"});
+  roots.separator();
+  for (size_t i = 0; i < roots_.size(); i++) {
+    roots.add_row({std::format("{:3}", i + 1), pointer_to_hex(roots_.at(i)),
+                   pointer_to_hex(*roots_.at(i))});
+  }
+  roots.separator();
+  dump.append(roots.to_string() + "\n");
 
   return dump;
 }
