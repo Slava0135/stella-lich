@@ -20,6 +20,7 @@ struct Stats {
   size_t reads;
   size_t writes;
 
+  size_t collections;
   std::vector<void *> collected_objects;
 };
 

@@ -19,6 +19,7 @@ MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks)
                    .bytes_free = max_memory,
                    .reads = 0,
                    .writes = 0,
+                   .collections = 0,
                    .collected_objects = std::vector<void *>()}) {
   space_ = std::make_unique<unsigned char[]>(max_memory);
   space_start_ = space_.get();
@@ -137,6 +138,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
 }
 
 void MarkAndSweep::collect() {
+  stats_.collections++;
   mark();
   sweep();
   if (merge_blocks) {
@@ -352,17 +354,24 @@ std::string MarkAndSweep::dump() const {
     thd = 17;
     tables::Table stats({fst, snd, thd});
     stats.separator();
-    stats.add_row({"COLLECTIONS", std::format("{} times", 0), ""});
+    stats.add_row(
+        {"COLLECTIONS", std::format("{} times", stats_.collections), ""});
     stats.separator();
     stats.add_row({"MEMORY USED",
                    std::format("{} bytes", stats_.bytes_allocated),
                    std::format("{} blocks", stats_.n_blocks_allocated)});
-    stats.add_row(
-        {"MEMORY USED (w/o metadata)", std::format("{} bytes", 0), ""});
+    stats.add_row({"MEMORY USED (w/o metadata)",
+                   std::format("{} bytes", stats_.bytes_allocated -
+                                               stats_.n_blocks_allocated *
+                                                   sizeof(Metadata)),
+                   ""});
     stats.add_row({"MEMORY FREE", std::format("{} bytes", stats_.bytes_free),
                    std::format("{} blocks", stats_.n_blocks_free)});
-    stats.add_row(
-        {"MEMORY FREE (w/o metadata)", std::format("{} bytes", 0), ""});
+    stats.add_row({"MEMORY FREE (w/o metadata)",
+                   std::format("{} bytes", stats_.bytes_free -
+                                               stats_.n_blocks_free *
+                                                   sizeof(Metadata)),
+                   ""});
     stats.separator();
     stats.add_row({"READS / WRITES", std::format("{} reads", stats_.reads),
                    std::format("{} writes", stats_.writes)});
@@ -406,9 +415,10 @@ std::string MarkAndSweep::dump() const {
             reinterpret_cast<void *>(&space_[block_idx + i - sizeof(Metadata)]);
         if (i == 0) {
           auto status = block_meta->mark == FREE ? "FREE" : "USED";
-          blocks.add_row(
-              {pointer_to_hex(v), pointer_to_hex(*reinterpret_cast<void **>(v)),
-               std::format("size: {:10}   {}", block_meta->block_size, status)});
+          blocks.add_row({pointer_to_hex(v),
+                          pointer_to_hex(*reinterpret_cast<void **>(v)),
+                          std::format("size: {:10}   {}",
+                                      block_meta->block_size, status)});
         } else {
           blocks.add_row({pointer_to_hex(v),
                           pointer_to_hex(*reinterpret_cast<void **>(v)), ""});
