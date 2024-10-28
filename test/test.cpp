@@ -198,33 +198,52 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
 }
 
-TEST_CASE("allocate / collect - all memory") {
-  gc::MarkAndSweep collector(16);
+TEST_CASE("allocate / collect - take all memory") {
+  const size_t size = 64;
+  gc::MarkAndSweep collector(size);
   gc::Stats stats;
+
+  REQUIRE(collector.allocate(8) != nullptr);
+  REQUIRE(collector.allocate(8) != nullptr);
+  REQUIRE(collector.allocate(8) != nullptr);
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_allocated == 4);
   REQUIRE(stats.n_blocks_free == 0);
-  REQUIRE(stats.bytes_allocated == 16);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == 16);
+  REQUIRE(stats.bytes_allocated == size);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
           stats.n_blocks_allocated + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
+
   collector.collect();
   stats = collector.get_stats();
   REQUIRE(stats.n_blocks_allocated == 0);
-  REQUIRE(stats.n_blocks_free == 1);
+  REQUIRE(stats.n_blocks_free == 4);
   REQUIRE(stats.bytes_allocated == 0);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == 16);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
           stats.n_blocks_allocated + stats.n_blocks_free);
+
+  REQUIRE(collector.allocate(8) != nullptr);
+  REQUIRE(collector.allocate(8) != nullptr);
+  REQUIRE(collector.allocate(8) != nullptr);
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_allocated == 4);
   REQUIRE(stats.n_blocks_free == 0);
-  REQUIRE(stats.bytes_allocated == 16);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == 16);
+  REQUIRE(stats.bytes_allocated == size);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
           stats.n_blocks_allocated + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
+
+  collector.collect();
+  stats = collector.get_stats();
+  REQUIRE(stats.n_blocks_allocated == 0);
+  REQUIRE(stats.n_blocks_free == 4);
+  REQUIRE(stats.bytes_allocated == 0);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.n_blocks_total ==
+          stats.n_blocks_allocated + stats.n_blocks_free);
 }
