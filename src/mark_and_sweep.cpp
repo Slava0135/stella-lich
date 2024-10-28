@@ -6,8 +6,9 @@
 
 namespace gc {
 
-MarkAndSweep::MarkAndSweep(const size_t max_memory)
+MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks)
     : max_memory(max_memory),
+      merge_blocks(merge_blocks),
       stats_(Stats{.n_blocks_allocated = 0,
                    .n_blocks_free = 1,
                    .n_blocks_total = 1,
@@ -133,6 +134,9 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
 void MarkAndSweep::collect() {
   mark();
   sweep();
+  if (merge_blocks) {
+    merge();
+  }
 }
 
 void MarkAndSweep::mark() {
@@ -215,6 +219,33 @@ void MarkAndSweep::sweep() {
       stats_.n_blocks_free++;
       stats_.bytes_allocated -= block_meta->block_size;
       stats_.bytes_free += block_meta->block_size;
+    }
+    p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
+  }
+}
+
+void MarkAndSweep::merge() {
+  auto p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(space_start_) +
+                                    sizeof(Metadata));
+  freelist_ = nullptr;
+  void *merging_block = nullptr;
+  while (p < space_end_) {
+    auto block_idx = pointer_to_idx(p);
+    auto block_meta = get_metadata(block_idx);
+    if (block_meta->mark == FREE) {
+      if (merging_block) {
+        auto merge_idx = pointer_to_idx(merging_block);
+        auto merge_meta = get_metadata(merge_idx);
+        merge_meta->block_size += block_meta->block_size;
+        stats_.n_blocks_total--;
+        stats_.n_blocks_free--;
+      } else {
+        *reinterpret_cast<void **>(p) = freelist_;
+        freelist_ = p;
+        merging_block = p;
+      }
+    } else {
+      merging_block = nullptr;
     }
     p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
   }

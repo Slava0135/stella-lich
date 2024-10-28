@@ -23,13 +23,14 @@ struct Stats {
 class MarkAndSweep {
 public:
   const size_t max_memory;
+  const bool merge_blocks;
 
   using block_size_t = uint32_t;
   using done_t = uint16_t;
   using mark_t = uint16_t;
   using pointer_t = void *;
 
-  MarkAndSweep(const size_t max_memory);
+  MarkAndSweep(size_t max_memory, bool merge_blocks);
 
   Stats get_stats() const;
   const std::vector<void **> &get_roots() const;
@@ -66,6 +67,7 @@ private:
   void dfs(void *x);
   void mark();
   void sweep();
+  void merge();
 
   bool is_in_space(void const *obj) const;
   bool is_valid_free_block(void const *obj) const;
