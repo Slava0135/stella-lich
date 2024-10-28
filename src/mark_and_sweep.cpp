@@ -355,26 +355,26 @@ std::string MarkAndSweep::dump() const {
     tables::Table stats({fst, snd, thd});
     stats.separator();
     stats.add_row(
-        {"COLLECTIONS", std::format("{} times", stats_.collections), ""});
+        {"COLLECTIONS", std::format("{:10} times", stats_.collections), ""});
     stats.separator();
     stats.add_row({"MEMORY USED",
-                   std::format("{} bytes", stats_.bytes_allocated),
-                   std::format("{} blocks", stats_.n_blocks_allocated)});
+                   std::format("{:10} bytes", stats_.bytes_allocated),
+                   std::format("{:10} blocks", stats_.n_blocks_allocated)});
     stats.add_row({"MEMORY USED (w/o metadata)",
-                   std::format("{} bytes", stats_.bytes_allocated -
+                   std::format("{:10} bytes", stats_.bytes_allocated -
                                                stats_.n_blocks_allocated *
                                                    sizeof(Metadata)),
                    ""});
-    stats.add_row({"MEMORY FREE", std::format("{} bytes", stats_.bytes_free),
-                   std::format("{} blocks", stats_.n_blocks_free)});
+    stats.add_row({"MEMORY FREE", std::format("{:10} bytes", stats_.bytes_free),
+                   std::format("{:10} blocks", stats_.n_blocks_free)});
     stats.add_row({"MEMORY FREE (w/o metadata)",
-                   std::format("{} bytes", stats_.bytes_free -
+                   std::format("{:10} bytes", stats_.bytes_free -
                                                stats_.n_blocks_free *
                                                    sizeof(Metadata)),
                    ""});
     stats.separator();
-    stats.add_row({"READS / WRITES", std::format("{} reads", stats_.reads),
-                   std::format("{} writes", stats_.writes)});
+    stats.add_row({"READS / WRITES", std::format("{:10} reads", stats_.reads),
+                   std::format("{:10} writes", stats_.writes)});
     stats.separator();
     dump.append(stats.to_string() + "\n");
   }
