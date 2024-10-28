@@ -13,7 +13,6 @@ class MarkAndSweep {
 public:
   struct Stats {
     size_t n_alive;
-    size_t n_roots;
     size_t n_blocks;
     size_t bytes_allocated;
     size_t bytes_free;

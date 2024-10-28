@@ -27,17 +27,17 @@ TEST_CASE("no objects") {
 
 TEST_CASE("push/pop roots") {
   gc::MarkAndSweep collector(42);
-  REQUIRE(collector.get_stats().n_roots == 0);
+  REQUIRE(collector.get_roots().size() == 0);
   void *objects[2];
   void **root_a = &objects[0];
   void **root_b = &objects[1];
   collector.push_root(root_a);
-  REQUIRE(collector.get_stats().n_roots == 1);
+  REQUIRE(collector.get_roots().size() == 1);
   collector.push_root(root_b);
-  REQUIRE(collector.get_stats().n_roots == 2);
+  REQUIRE(collector.get_roots().size() == 2);
   collector.pop_root(root_b);
   collector.pop_root(root_a);
-  REQUIRE(collector.get_stats().n_roots == 0);
+  REQUIRE(collector.get_roots().size() == 0);
 }
 
 TEST_CASE("allocate") {
