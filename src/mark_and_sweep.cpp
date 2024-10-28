@@ -345,40 +345,72 @@ std::string MarkAndSweep::dump() const {
   std::string dump;
   size_t fst, snd, thd;
 
-  dump.append("STATS\n");
-  fst = 26;
-  snd = 16;
-  thd = 17;
-  tables::Table stats({fst, snd, thd});
-  stats.separator();
-  stats.add_row({"COLLECTIONS", std::format("{} times", 0), ""});
-  stats.separator();
-  stats.add_row({"MEMORY USED", std::format("{} bytes", stats_.bytes_allocated),
-                 std::format("{} blocks", stats_.n_blocks_allocated)});
-  stats.add_row({"MEMORY USED (w/o metadata)", std::format("{} bytes", 0), ""});
-  stats.add_row({"MEMORY FREE", std::format("{} bytes", stats_.bytes_free),
-                 std::format("{} blocks", stats_.n_blocks_free)});
-  stats.add_row({"MEMORY FREE (w/o metadata)", std::format("{} bytes", 0), ""});
-  stats.separator();
-  stats.add_row({"READS / WRITES", std::format("{} reads", stats_.reads),
-                 std::format("{} writes", stats_.writes)});
-  stats.separator();
-  dump.append(stats.to_string() + "\n");
-
-  dump.append("\nROOTS\n");
-  fst = 3;
-  snd = 23;
-  thd = 23;
-  tables::Table roots({fst, snd, thd});
-  roots.separator();
-  roots.add_row({"IDX", "ADDRESS", "VALUE"});
-  roots.separator();
-  for (size_t i = 0; i < roots_.size(); i++) {
-    roots.add_row({std::format("{:3}", i + 1), pointer_to_hex(roots_.at(i)),
-                   pointer_to_hex(*roots_.at(i))});
+  {
+    dump.append("STATS\n");
+    fst = 26;
+    snd = 16;
+    thd = 17;
+    tables::Table stats({fst, snd, thd});
+    stats.separator();
+    stats.add_row({"COLLECTIONS", std::format("{} times", 0), ""});
+    stats.separator();
+    stats.add_row({"MEMORY USED",
+                   std::format("{} bytes", stats_.bytes_allocated),
+                   std::format("{} blocks", stats_.n_blocks_allocated)});
+    stats.add_row(
+        {"MEMORY USED (w/o metadata)", std::format("{} bytes", 0), ""});
+    stats.add_row({"MEMORY FREE", std::format("{} bytes", stats_.bytes_free),
+                   std::format("{} blocks", stats_.n_blocks_free)});
+    stats.add_row(
+        {"MEMORY FREE (w/o metadata)", std::format("{} bytes", 0), ""});
+    stats.separator();
+    stats.add_row({"READS / WRITES", std::format("{} reads", stats_.reads),
+                   std::format("{} writes", stats_.writes)});
+    stats.separator();
+    dump.append(stats.to_string() + "\n");
   }
-  roots.separator();
-  dump.append(roots.to_string() + "\n");
+
+  {
+    dump.append("\nROOTS\n");
+    fst = 3;
+    snd = 23;
+    thd = 23;
+    tables::Table roots({fst, snd, thd});
+    roots.separator();
+    roots.add_row({"IDX", "ADDRESS", "VALUE"});
+    roots.separator();
+    for (size_t i = 0; i < roots_.size(); i++) {
+      roots.add_row({std::format("{:3}", i + 1), pointer_to_hex(roots_.at(i)),
+                     pointer_to_hex(*roots_.at(i))});
+    }
+    roots.separator();
+    dump.append(roots.to_string() + "\n");
+  }
+
+  {
+    dump.append("\nBLOCKS\n");
+    fst = 23;
+    snd = 23;
+    thd = 23;
+    tables::Table blocks({fst, snd, thd});
+    blocks.separator();
+    blocks.add_row({"ADDRESS", "VALUE", "DESCRIPTION"});
+    blocks.separator();
+    auto p = reinterpret_cast<void *>(
+        reinterpret_cast<uintptr_t>(space_start_) + sizeof(Metadata));
+    while (p < space_end_) {
+      auto block_idx = pointer_to_idx(p);
+      auto block_meta = get_metadata(block_idx);
+      for (size_t i = 0; i < block_meta->block_size; i += sizeof(pointer_t)) {
+        auto v = reinterpret_cast<void *>(&space_[block_idx + i - sizeof(Metadata)]);
+        blocks.add_row({pointer_to_hex(v),
+                        pointer_to_hex(*reinterpret_cast<void **>(v)), ""});
+      }
+      blocks.separator();
+      p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
+    }
+    dump.append(blocks.to_string() + "\n");
+  }
 
   return dump;
 }

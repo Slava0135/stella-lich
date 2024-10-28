@@ -20,18 +20,18 @@ struct B {
 };
 
 TEST_CASE("no objects") {
-  gc::MarkAndSweep collector(11, false);
+  gc::MarkAndSweep collector(32, false);
   auto stats = collector.get_stats();
   REQUIRE(stats.n_blocks_allocated == 0);
   REQUIRE(stats.n_blocks_free == 1);
   REQUIRE(stats.bytes_allocated == 0);
-  REQUIRE(stats.bytes_free == 11);
+  REQUIRE(stats.bytes_free == 32);
   REQUIRE(stats.n_blocks_total ==
           stats.n_blocks_allocated + stats.n_blocks_free);
 }
 
 TEST_CASE("push/pop roots") {
-  gc::MarkAndSweep collector(42, false);
+  gc::MarkAndSweep collector(32, false);
   REQUIRE(collector.get_roots().size() == 0);
   void *objects[2];
   void **root_a = &objects[0];
@@ -75,7 +75,7 @@ TEST_CASE("allocate") {
 }
 
 TEST_CASE("collect - no alive objects") {
-  const size_t size = 1000;
+  const size_t size = 256;
   gc::MarkAndSweep collector(size, false);
   gc::Stats stats;
   REQUIRE(collector.allocate(8) != nullptr);
@@ -106,7 +106,7 @@ TEST_CASE("collect - no alive objects") {
 }
 
 TEST_CASE("collect - one alive object") {
-  const size_t size = 1000;
+  const size_t size = 256;
   gc::MarkAndSweep collector(size, false);
   gc::Stats stats;
   void *obj = collector.allocate(8);
@@ -126,7 +126,7 @@ TEST_CASE("collect - one alive object") {
 }
 
 TEST_CASE("collect - example 13.4 (A. Appel)") {
-  const size_t size = 1000;
+  const size_t size = 256;
   gc::MarkAndSweep collector(size, false);
   gc::Stats stats;
   std::string dump;
@@ -162,7 +162,7 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   REQUIRE(stats.n_blocks_allocated == 7);
   REQUIRE(stats.n_blocks_total == 8);
   REQUIRE(stats.bytes_allocated == (5 * (8 + 16) + 2 * (8 + 8)));
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == 1000);
+  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
 
   collector.collect();
 
