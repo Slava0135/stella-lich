@@ -11,12 +11,14 @@
 namespace gc {
 
 struct Stats {
-  size_t n_blocks_allocated;
+  size_t n_blocks_used;
   size_t n_blocks_free;
   size_t n_blocks_total;
+  size_t n_blocks_used_max;
 
-  size_t bytes_allocated;
+  size_t bytes_used;
   size_t bytes_free;
+  size_t bytes_used_max;
 
   size_t reads;
   size_t writes;

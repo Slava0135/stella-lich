@@ -22,12 +22,12 @@ struct B {
 TEST_CASE("no objects") {
   gc::MarkAndSweep collector(32, false, false);
   auto stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 0);
+  REQUIRE(stats.n_blocks_used == 0);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 0);
+  REQUIRE(stats.bytes_used == 0);
   REQUIRE(stats.bytes_free == 32);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
 }
 
 TEST_CASE("push/pop roots") {
@@ -50,28 +50,28 @@ TEST_CASE("allocate") {
   gc::Stats stats;
   REQUIRE(collector.allocate(1) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_used == 1);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 16);
+  REQUIRE(stats.bytes_used == 16);
   REQUIRE(stats.bytes_free == 32);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 2);
+  REQUIRE(stats.n_blocks_used == 2);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 32);
+  REQUIRE(stats.bytes_used == 32);
   REQUIRE(stats.bytes_free == 16);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(9) == nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 2);
+  REQUIRE(stats.n_blocks_used == 2);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 32);
+  REQUIRE(stats.bytes_used == 32);
   REQUIRE(stats.bytes_free == 16);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
 }
 
 TEST_CASE("collect - no alive objects") {
@@ -80,29 +80,29 @@ TEST_CASE("collect - no alive objects") {
   gc::Stats stats;
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_used == 1);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 16);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 16);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(collector.allocate(16) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 2);
+  REQUIRE(stats.n_blocks_used == 2);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 16 + 24);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 16 + 24);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(collector.allocate(24) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 3);
+  REQUIRE(stats.n_blocks_used == 3);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 16 + 24 + 32);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 16 + 24 + 32);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   collector.collect();
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 0);
+  REQUIRE(stats.n_blocks_used == 0);
   REQUIRE(stats.n_blocks_free == 4);
-  REQUIRE(stats.bytes_allocated == 0);
+  REQUIRE(stats.bytes_used == 0);
   REQUIRE(stats.bytes_free == size);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
 }
 
 TEST_CASE("collect - one alive object") {
@@ -112,17 +112,17 @@ TEST_CASE("collect - one alive object") {
   void *obj = collector.allocate(8);
   stats = collector.get_stats();
   REQUIRE(obj != nullptr);
-  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_used == 1);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 16);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 16);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   collector.push_root(&obj);
   collector.collect();
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_used == 1);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 16);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 16);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
 }
 
 TEST_CASE("collect - example 13.4 (A. Appel)") {
@@ -159,10 +159,10 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   stats = collector.get_stats();
   dump = collector.dump();
   std::cout << dump << std::endl;
-  REQUIRE(stats.n_blocks_allocated == 7);
+  REQUIRE(stats.n_blocks_used == 7);
   REQUIRE(stats.n_blocks_total == 8);
-  REQUIRE(stats.bytes_allocated == (5 * (8 + 16) + 2 * (8 + 8)));
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == (5 * (8 + 16) + 2 * (8 + 8)));
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
 
   collector.collect();
 
@@ -197,12 +197,14 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
   std::set<std::string> expected{NAME_OF(b_7), NAME_OF(b_9)};
   REQUIRE(collected_objects == expected);
 
-  REQUIRE(stats.n_blocks_allocated == 5);
+  REQUIRE(stats.n_blocks_used == 5);
   REQUIRE(stats.n_blocks_free == 3);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
-  REQUIRE(stats.bytes_allocated == 5 * (8 + 16));
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.bytes_used == 5 * (8 + 16));
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
+  REQUIRE(stats.n_blocks_used_max == 7);
+  REQUIRE(stats.bytes_used_max == (5 * (8 + 16) + 2 * (8 + 8)));
 }
 
 TEST_CASE("allocate / collect - take all memory") {
@@ -218,24 +220,24 @@ TEST_CASE("allocate / collect - take all memory") {
   stats = collector.get_stats();
   dump = collector.dump();
   std::cout << dump << std::endl;
-  REQUIRE(stats.n_blocks_allocated == 4);
+  REQUIRE(stats.n_blocks_used == 4);
   REQUIRE(stats.n_blocks_free == 0);
-  REQUIRE(stats.bytes_allocated == size);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == size);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
 
   collector.collect();
   stats = collector.get_stats();
   dump = collector.dump();
   std::cout << dump << std::endl;
-  REQUIRE(stats.n_blocks_allocated == 0);
+  REQUIRE(stats.n_blocks_used == 0);
   REQUIRE(stats.n_blocks_free == 4);
-  REQUIRE(stats.bytes_allocated == 0);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 0);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
 
   REQUIRE(collector.allocate(8) != nullptr);
   REQUIRE(collector.allocate(8) != nullptr);
@@ -244,24 +246,24 @@ TEST_CASE("allocate / collect - take all memory") {
   stats = collector.get_stats();
   dump = collector.dump();
   std::cout << dump << std::endl;
-  REQUIRE(stats.n_blocks_allocated == 4);
+  REQUIRE(stats.n_blocks_used == 4);
   REQUIRE(stats.n_blocks_free == 0);
-  REQUIRE(stats.bytes_allocated == size);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == size);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
 
   collector.collect();
   stats = collector.get_stats();
   dump = collector.dump();
   std::cout << dump << std::endl;
-  REQUIRE(stats.n_blocks_allocated == 0);
+  REQUIRE(stats.n_blocks_used == 0);
   REQUIRE(stats.n_blocks_free == 4);
-  REQUIRE(stats.bytes_allocated == 0);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 0);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
 }
 
 TEST_CASE("merge blocks") {
@@ -277,35 +279,35 @@ TEST_CASE("merge blocks") {
   REQUIRE(collector.allocate(8) != nullptr);
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 4);
+  REQUIRE(stats.n_blocks_used == 4);
   REQUIRE(stats.n_blocks_free == 0);
-  REQUIRE(stats.bytes_allocated == size);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == size);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
   dump = collector.dump();
   std::cout << dump << std::endl;
 
   collector.collect();
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 1);
+  REQUIRE(stats.n_blocks_used == 1);
   REQUIRE(stats.n_blocks_free == 2);
-  REQUIRE(stats.bytes_allocated == 16);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 16);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
   dump = collector.dump();
   std::cout << dump << std::endl;
 
   REQUIRE(collector.allocate(24) != nullptr);
   stats = collector.get_stats();
-  REQUIRE(stats.n_blocks_allocated == 2);
+  REQUIRE(stats.n_blocks_used == 2);
   REQUIRE(stats.n_blocks_free == 1);
-  REQUIRE(stats.bytes_allocated == 48);
-  REQUIRE(stats.bytes_allocated + stats.bytes_free == size);
+  REQUIRE(stats.bytes_used == 48);
+  REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_allocated + stats.n_blocks_free);
+          stats.n_blocks_used + stats.n_blocks_free);
   dump = collector.dump();
   std::cout << dump << std::endl;
 }

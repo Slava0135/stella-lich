@@ -2,6 +2,7 @@
 
 #include <assert.h>
 
+#include <algorithm>
 #include <format>
 #include <limits>
 
@@ -9,15 +10,18 @@
 
 namespace gc {
 
-MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks, bool skip_first_field)
+MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
+                           bool skip_first_field)
     : max_memory(max_memory),
       merge_blocks(merge_blocks),
       skip_first_field(skip_first_field),
-      stats_(Stats{.n_blocks_allocated = 0,
+      stats_(Stats{.n_blocks_used = 0,
                    .n_blocks_free = 1,
                    .n_blocks_total = 1,
-                   .bytes_allocated = 0,
+                   .n_blocks_used_max = 0,
+                   .bytes_used = 0,
                    .bytes_free = max_memory,
+                   .bytes_used_max = 0,
                    .reads = 0,
                    .writes = 0,
                    .collections = 0,
@@ -80,9 +84,13 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       block_meta->mark = NOT_MARKED;
       // update stats
       stats_.n_blocks_free--;
-      stats_.n_blocks_allocated++;
+      stats_.n_blocks_used++;
+      stats_.n_blocks_used_max =
+          std::max(stats_.n_blocks_used_max, stats_.n_blocks_used);
       stats_.bytes_free -= block_meta->block_size;
-      stats_.bytes_allocated += block_meta->block_size;
+      stats_.bytes_used += block_meta->block_size;
+      stats_.bytes_used_max =
+          std::max(stats_.bytes_used_max, stats_.bytes_used);
       // remove from freelist
       *prev_free_block = *reinterpret_cast<void **>(&space_[block_idx]);
       assert(is_valid_free_block(*prev_free_block));
@@ -105,9 +113,13 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       block_meta->mark = NOT_MARKED;
       // update stats
       stats_.n_blocks_total++;
-      stats_.n_blocks_allocated++;
+      stats_.n_blocks_used++;
+      stats_.n_blocks_used_max =
+          std::max(stats_.n_blocks_used_max, stats_.n_blocks_used);
       stats_.bytes_free -= block_meta->block_size;
-      stats_.bytes_allocated += block_meta->block_size;
+      stats_.bytes_used += block_meta->block_size;
+      stats_.bytes_used_max =
+          std::max(stats_.bytes_used_max, stats_.bytes_used);
       // remove from freelist
       *prev_free_block = &space_[new_block_idx];
       assert(is_valid_free_block(*prev_free_block));
@@ -122,10 +134,14 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
       // update stats
-      stats_.n_blocks_allocated++;
+      stats_.n_blocks_used++;
       stats_.n_blocks_free--;
+      stats_.n_blocks_used_max =
+          std::max(stats_.n_blocks_used_max, stats_.n_blocks_used);
       stats_.bytes_free -= block_meta->block_size;
-      stats_.bytes_allocated += block_meta->block_size;
+      stats_.bytes_used += block_meta->block_size;
+      stats_.bytes_used_max =
+          std::max(stats_.bytes_used_max, stats_.bytes_used);
       // remove from freelist
       *prev_free_block = *reinterpret_cast<void **>(space_[block_idx]);
       assert(is_valid_free_block(*prev_free_block));
@@ -220,12 +236,12 @@ void MarkAndSweep::sweep() {
       block_meta->mark = FREE;
       *reinterpret_cast<void **>(p) = freelist_;
       freelist_ = p;
-      assert(stats_.n_blocks_allocated > 0);
-      assert(stats_.bytes_allocated >= block_meta->block_size);
+      assert(stats_.n_blocks_used > 0);
+      assert(stats_.bytes_used >= block_meta->block_size);
       stats_.collected_objects.push_back(p);
-      stats_.n_blocks_allocated--;
+      stats_.n_blocks_used--;
       stats_.n_blocks_free++;
-      stats_.bytes_allocated -= block_meta->block_size;
+      stats_.bytes_used -= block_meta->block_size;
       stats_.bytes_free += block_meta->block_size;
     }
     p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
@@ -358,16 +374,19 @@ std::string MarkAndSweep::dump_stats() const {
   tables::Table stats({26, 16, 17});
   stats.separator();
   stats.add_row(
-      {"COLLECTIONS", std::format("{:10} times", stats_.collections), ""});
+      {"COLLECTIONS", "", std::format("{:10} cycles", stats_.collections)});
   stats.separator();
-  stats.add_row({"MEMORY USED",
-                 std::format("{:10} bytes", stats_.bytes_allocated),
-                 std::format("{:10} blocks", stats_.n_blocks_allocated)});
-  stats.add_row({"MEMORY USED (w/o metadata)",
-                 std::format("{:10} bytes",
-                             stats_.bytes_allocated -
-                                 stats_.n_blocks_allocated * sizeof(Metadata)),
-                 ""});
+  stats.add_row({"MEMORY USED (max)",
+                 std::format("{:10} bytes", stats_.bytes_used_max),
+                 std::format("{:10} blocks", stats_.n_blocks_used_max)});
+  stats.separator();
+  stats.add_row({"MEMORY USED", std::format("{:10} bytes", stats_.bytes_used),
+                 std::format("{:10} blocks", stats_.n_blocks_used)});
+  stats.add_row(
+      {"MEMORY USED (w/o metadata)",
+       std::format("{:10} bytes",
+                   stats_.bytes_used - stats_.n_blocks_used * sizeof(Metadata)),
+       ""});
   stats.add_row({"MEMORY FREE", std::format("{:10} bytes", stats_.bytes_free),
                  std::format("{:10} blocks", stats_.n_blocks_free)});
   stats.add_row(
