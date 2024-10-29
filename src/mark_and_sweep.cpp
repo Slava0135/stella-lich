@@ -345,91 +345,88 @@ std::string pointer_to_hex(void *ptr) {
 
 std::string MarkAndSweep::dump() const {
   std::string dump;
-  size_t fst, snd, thd;
+  dump.append(dump_stats() + "\n\n");
+  dump.append(dump_roots() + "\n\n");
+  dump.append(dump_blocks() + "\n");
+  return dump;
+}
 
-  {
-    dump.append("STATS\n");
-    fst = 26;
-    snd = 16;
-    thd = 17;
-    tables::Table stats({fst, snd, thd});
-    stats.separator();
-    stats.add_row(
-        {"COLLECTIONS", std::format("{:10} times", stats_.collections), ""});
-    stats.separator();
-    stats.add_row({"MEMORY USED",
-                   std::format("{:10} bytes", stats_.bytes_allocated),
-                   std::format("{:10} blocks", stats_.n_blocks_allocated)});
-    stats.add_row({"MEMORY USED (w/o metadata)",
-                   std::format("{:10} bytes", stats_.bytes_allocated -
-                                               stats_.n_blocks_allocated *
-                                                   sizeof(Metadata)),
-                   ""});
-    stats.add_row({"MEMORY FREE", std::format("{:10} bytes", stats_.bytes_free),
-                   std::format("{:10} blocks", stats_.n_blocks_free)});
-    stats.add_row({"MEMORY FREE (w/o metadata)",
-                   std::format("{:10} bytes", stats_.bytes_free -
-                                               stats_.n_blocks_free *
-                                                   sizeof(Metadata)),
-                   ""});
-    stats.separator();
-    stats.add_row({"READS / WRITES", std::format("{:10} reads", stats_.reads),
-                   std::format("{:10} writes", stats_.writes)});
-    stats.separator();
-    dump.append(stats.to_string() + "\n");
+std::string MarkAndSweep::dump_stats() const {
+  std::string dump;
+  dump.append("STATS\n");
+  tables::Table stats({26, 16, 17});
+  stats.separator();
+  stats.add_row(
+      {"COLLECTIONS", std::format("{:10} times", stats_.collections), ""});
+  stats.separator();
+  stats.add_row({"MEMORY USED",
+                 std::format("{:10} bytes", stats_.bytes_allocated),
+                 std::format("{:10} blocks", stats_.n_blocks_allocated)});
+  stats.add_row({"MEMORY USED (w/o metadata)",
+                 std::format("{:10} bytes",
+                             stats_.bytes_allocated -
+                                 stats_.n_blocks_allocated * sizeof(Metadata)),
+                 ""});
+  stats.add_row({"MEMORY FREE", std::format("{:10} bytes", stats_.bytes_free),
+                 std::format("{:10} blocks", stats_.n_blocks_free)});
+  stats.add_row(
+      {"MEMORY FREE (w/o metadata)",
+       std::format("{:10} bytes",
+                   stats_.bytes_free - stats_.n_blocks_free * sizeof(Metadata)),
+       ""});
+  stats.separator();
+  stats.add_row({"READS / WRITES", std::format("{:10} reads", stats_.reads),
+                 std::format("{:10} writes", stats_.writes)});
+  stats.separator();
+  dump.append(stats.to_string());
+  return dump;
+}
+
+std::string MarkAndSweep::dump_roots() const {
+  std::string dump;
+  dump.append("ROOTS\n");
+  tables::Table roots({3, 23, 23});
+  roots.separator();
+  roots.add_row({"IDX", "ADDRESS", "VALUE"});
+  roots.separator();
+  for (size_t i = 0; i < roots_.size(); i++) {
+    roots.add_row({std::format("{:3}", i + 1), pointer_to_hex(roots_.at(i)),
+                   pointer_to_hex(*roots_.at(i))});
   }
+  roots.separator();
+  dump.append(roots.to_string());
+  return dump;
+}
 
-  {
-    dump.append("\nROOTS\n");
-    fst = 3;
-    snd = 23;
-    thd = 23;
-    tables::Table roots({fst, snd, thd});
-    roots.separator();
-    roots.add_row({"IDX", "ADDRESS", "VALUE"});
-    roots.separator();
-    for (size_t i = 0; i < roots_.size(); i++) {
-      roots.add_row({std::format("{:3}", i + 1), pointer_to_hex(roots_.at(i)),
-                     pointer_to_hex(*roots_.at(i))});
-    }
-    roots.separator();
-    dump.append(roots.to_string() + "\n");
-  }
-
-  {
-    dump.append("\nBLOCKS\n");
-    fst = 23;
-    snd = 23;
-    thd = 23;
-    tables::Table blocks({fst, snd, thd});
-    blocks.separator();
-    blocks.add_row({"ADDRESS", "VALUE", "DESCRIPTION"});
-    blocks.separator();
-    auto p = reinterpret_cast<void *>(
-        reinterpret_cast<uintptr_t>(space_start_) + sizeof(Metadata));
-    while (p < space_end_) {
-      auto block_idx = pointer_to_idx(p);
-      auto block_meta = get_metadata(block_idx);
-      for (size_t i = 0; i < block_meta->block_size; i += sizeof(pointer_t)) {
-        auto v =
-            reinterpret_cast<void *>(&space_[block_idx + i - sizeof(Metadata)]);
-        if (i == 0) {
-          auto status = block_meta->mark == FREE ? "FREE" : "USED";
-          blocks.add_row({pointer_to_hex(v),
-                          pointer_to_hex(*reinterpret_cast<void **>(v)),
-                          std::format("size: {:10}   {}",
-                                      block_meta->block_size, status)});
-        } else {
-          blocks.add_row({pointer_to_hex(v),
-                          pointer_to_hex(*reinterpret_cast<void **>(v)), ""});
-        }
+std::string MarkAndSweep::dump_blocks() const {
+  std::string dump;
+  dump.append("BLOCKS\n");
+  tables::Table blocks({23, 23, 23});
+  blocks.separator();
+  blocks.add_row({"ADDRESS", "VALUE", "DESCRIPTION"});
+  blocks.separator();
+  auto p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(space_start_) +
+                                    sizeof(Metadata));
+  while (p < space_end_) {
+    auto block_idx = pointer_to_idx(p);
+    auto block_meta = get_metadata(block_idx);
+    for (size_t i = 0; i < block_meta->block_size; i += sizeof(pointer_t)) {
+      auto v =
+          reinterpret_cast<void *>(&space_[block_idx + i - sizeof(Metadata)]);
+      if (i == 0) {
+        auto status = block_meta->mark == FREE ? "FREE" : "USED";
+        blocks.add_row(
+            {pointer_to_hex(v), pointer_to_hex(*reinterpret_cast<void **>(v)),
+             std::format("size: {:10}   {}", block_meta->block_size, status)});
+      } else {
+        blocks.add_row({pointer_to_hex(v),
+                        pointer_to_hex(*reinterpret_cast<void **>(v)), ""});
       }
-      blocks.separator();
-      p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
     }
-    dump.append(blocks.to_string() + "\n");
+    blocks.separator();
+    p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
   }
-
+  dump.append(blocks.to_string());
   return dump;
 }
 

@@ -49,6 +49,9 @@ public:
   void write();
 
   std::string dump() const;
+  std::string dump_stats() const;
+  std::string dump_roots() const;
+  std::string dump_blocks() const;
 
 private:
   enum Mark : mark_t {
