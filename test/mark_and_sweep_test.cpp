@@ -20,7 +20,7 @@ struct B {
 };
 
 TEST_CASE("no objects") {
-  gc::MarkAndSweep collector(32, false);
+  gc::MarkAndSweep collector(32, false, false);
   auto stats = collector.get_stats();
   REQUIRE(stats.n_blocks_allocated == 0);
   REQUIRE(stats.n_blocks_free == 1);
@@ -31,7 +31,7 @@ TEST_CASE("no objects") {
 }
 
 TEST_CASE("push/pop roots") {
-  gc::MarkAndSweep collector(32, false);
+  gc::MarkAndSweep collector(32, false, false);
   REQUIRE(collector.get_roots().size() == 0);
   void *objects[2];
   void **root_a = &objects[0];
@@ -46,7 +46,7 @@ TEST_CASE("push/pop roots") {
 }
 
 TEST_CASE("allocate") {
-  gc::MarkAndSweep collector(48, false);
+  gc::MarkAndSweep collector(48, false, false);
   gc::Stats stats;
   REQUIRE(collector.allocate(1) != nullptr);
   stats = collector.get_stats();
@@ -76,7 +76,7 @@ TEST_CASE("allocate") {
 
 TEST_CASE("collect - no alive objects") {
   const size_t size = 256;
-  gc::MarkAndSweep collector(size, false);
+  gc::MarkAndSweep collector(size, false, false);
   gc::Stats stats;
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
@@ -107,7 +107,7 @@ TEST_CASE("collect - no alive objects") {
 
 TEST_CASE("collect - one alive object") {
   const size_t size = 256;
-  gc::MarkAndSweep collector(size, false);
+  gc::MarkAndSweep collector(size, false, false);
   gc::Stats stats;
   void *obj = collector.allocate(8);
   stats = collector.get_stats();
@@ -127,7 +127,7 @@ TEST_CASE("collect - one alive object") {
 
 TEST_CASE("collect - example 13.4 (A. Appel)") {
   const size_t size = 256;
-  gc::MarkAndSweep collector(size, false);
+  gc::MarkAndSweep collector(size, false, false);
   gc::Stats stats;
   std::string dump;
 
@@ -207,7 +207,7 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
 
 TEST_CASE("allocate / collect - take all memory") {
   const size_t size = 64;
-  gc::MarkAndSweep collector(size, false);
+  gc::MarkAndSweep collector(size, false, false);
   gc::Stats stats;
   std::string dump;
 
@@ -266,7 +266,7 @@ TEST_CASE("allocate / collect - take all memory") {
 
 TEST_CASE("merge blocks") {
   const size_t size = 64;
-  gc::MarkAndSweep collector(size, true);
+  gc::MarkAndSweep collector(size, true, false);
   gc::Stats stats;
   std::string dump;
 

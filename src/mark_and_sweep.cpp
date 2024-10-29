@@ -9,9 +9,10 @@
 
 namespace gc {
 
-MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks)
+MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks, bool skip_first_field)
     : max_memory(max_memory),
       merge_blocks(merge_blocks),
+      skip_first_field(skip_first_field),
       stats_(Stats{.n_blocks_allocated = 0,
                    .n_blocks_free = 1,
                    .n_blocks_total = 1,
@@ -176,7 +177,7 @@ void MarkAndSweep::dfs(void *x) {
     if (i < field_n) {
       auto field_i_addr = &space_[x_i + i * sizeof(pointer_t)];
       auto y = *reinterpret_cast<void **>(field_i_addr);
-      if (is_in_space(y)) {
+      if ((i > 0 || !skip_first_field) && is_in_space(y)) {
         auto y_i = pointer_to_idx(y);
         auto y_meta = get_metadata(y_i);
         if (y_meta->mark == NOT_MARKED) {

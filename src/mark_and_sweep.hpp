@@ -1,10 +1,11 @@
 #pragma once
 
 #include <assert.h>
+#include <stddef.h>
+
 #include <cstdint>
 #include <limits>
 #include <memory>
-#include <stddef.h>
 #include <vector>
 
 namespace gc {
@@ -25,16 +26,17 @@ struct Stats {
 };
 
 class MarkAndSweep {
-public:
+ public:
   const size_t max_memory;
   const bool merge_blocks;
+  const bool skip_first_field;
 
   using block_size_t = uint32_t;
   using done_t = uint16_t;
   using mark_t = uint16_t;
   using pointer_t = void *;
 
-  MarkAndSweep(size_t max_memory, bool merge_blocks);
+  MarkAndSweep(size_t max_memory, bool merge_blocks, bool skip_first_field);
 
   Stats get_stats() const;
   const std::vector<void **> &get_roots() const;
@@ -53,7 +55,7 @@ public:
   std::string dump_roots() const;
   std::string dump_blocks() const;
 
-private:
+ private:
   enum Mark : mark_t {
     NOT_MARKED,
     MARKED,
@@ -88,4 +90,4 @@ private:
   Metadata *get_metadata(size_t obj_idx) const;
 };
 
-} // namespace gc
+}  // namespace gc
