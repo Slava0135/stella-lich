@@ -15,7 +15,7 @@ bool log(std::string msg) {
 #ifndef NDEBUG
   std::cout << msg << std::endl;
 #endif
-  return true;
+  return false;
 }
 
 std::string pointer_to_hex(void *ptr) {
@@ -77,8 +77,8 @@ MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
   space_end_ = &space_[max_memory];
   auto max_allowed_memory = static_cast<size_t>(1)
                             << (8 * sizeof(block_size_t));
-  assert(max_memory < max_allowed_memory &&
-         "max memory must be less than max block size" &&
+  assert((max_memory < max_allowed_memory &&
+          "max memory must be less than max block size") ||
          log(std::format("{} is >= {}", max_memory, max_allowed_memory)));
   assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
          "space start address must be aligned to pointer size");
@@ -154,7 +154,8 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
                    sizeof(Metadata) + sizeof(pointer_t)) {
       // take required space and split remaining into new block
       auto new_block_idx = block_idx + to_allocate;
-      auto new_block_meta = reinterpret_cast<Metadata *>(&space_[new_block_idx - sizeof(Metadata)]);
+      auto new_block_meta = reinterpret_cast<Metadata *>(
+          &space_[new_block_idx - sizeof(Metadata)]);
       new_block_meta->block_size = block_meta->block_size - to_allocate;
       new_block_meta->done = 0;
       new_block_meta->mark = FREE;
@@ -369,11 +370,13 @@ size_t MarkAndSweep::pointer_to_idx(void const *obj) const {
 MarkAndSweep::Metadata *MarkAndSweep::get_metadata(size_t obj_idx) const {
   size_t metadata_idx = obj_idx - sizeof(Metadata);
   auto res = reinterpret_cast<Metadata *>(&space_[metadata_idx]);
-  assert(res->block_size <= max_memory &&
-         "potential memory corruption detected" && log(pointer_to_hex(res)));
+  assert((res->block_size <= max_memory &&
+          "potential memory corruption detected") ||
+         log(pointer_to_hex(res)));
   assert(
-      (res->mark == NOT_MARKED || res->mark == MARKED || res->mark == FREE) &&
-      "potential memory corruption detected" && log(pointer_to_hex(res)));
+      ((res->mark == NOT_MARKED || res->mark == MARKED || res->mark == FREE) &&
+       "potential memory corruption detected") ||
+      log(pointer_to_hex(res)));
   return res;
 }
 
