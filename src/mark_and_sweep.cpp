@@ -143,7 +143,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       stats_.bytes_used_max =
           std::max(stats_.bytes_used_max, stats_.bytes_used);
       // remove from freelist
-      *prev_free_block = *reinterpret_cast<void **>(space_[block_idx]);
+      *prev_free_block = *reinterpret_cast<void **>(&space_[block_idx]);
       assert(is_valid_free_block(*prev_free_block));
       return free_block;
     }
