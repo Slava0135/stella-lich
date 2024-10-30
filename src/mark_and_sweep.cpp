@@ -18,6 +18,43 @@ bool log(std::string msg) {
   return true;
 }
 
+std::string pointer_to_hex(void *ptr) {
+  auto v = reinterpret_cast<uintptr_t>(ptr);
+  std::string res;
+  for (size_t i = 0; i < 2 * sizeof(void *); i++) {
+    if (i > 0 && i % 2 == 0) {
+      res.append(" ");
+    }
+    auto digit = v % 16;
+    switch (digit) {
+      case 10:
+        res.append("a");
+        break;
+      case 11:
+        res.append("b");
+        break;
+      case 12:
+        res.append("c");
+        break;
+      case 13:
+        res.append("d");
+        break;
+      case 14:
+        res.append("e");
+        break;
+      case 15:
+        res.append("f");
+        break;
+      default:
+        res.append(std::format("{}", digit));
+        break;
+    }
+    v = v >> 4;
+  }
+  std::reverse(res.begin(), res.end());
+  return res;
+}
+
 MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
                            bool skip_first_field)
     : max_memory(max_memory),
@@ -117,7 +154,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
                    sizeof(Metadata) + sizeof(pointer_t)) {
       // take required space and split remaining into new block
       auto new_block_idx = block_idx + to_allocate;
-      auto new_block_meta = get_metadata(new_block_idx);
+      auto new_block_meta = reinterpret_cast<Metadata *>(&space_[new_block_idx - sizeof(Metadata)]);
       new_block_meta->block_size = block_meta->block_size - to_allocate;
       new_block_meta->done = 0;
       new_block_meta->mark = FREE;
@@ -333,53 +370,16 @@ MarkAndSweep::Metadata *MarkAndSweep::get_metadata(size_t obj_idx) const {
   size_t metadata_idx = obj_idx - sizeof(Metadata);
   auto res = reinterpret_cast<Metadata *>(&space_[metadata_idx]);
   assert(res->block_size <= max_memory &&
-         "potential memory corruption detected");
+         "potential memory corruption detected" && log(pointer_to_hex(res)));
   assert(
       (res->mark == NOT_MARKED || res->mark == MARKED || res->mark == FREE) &&
-      "potential memory corruption detected");
+      "potential memory corruption detected" && log(pointer_to_hex(res)));
   return res;
 }
 
 void MarkAndSweep::read() { stats_.reads++; }
 
 void MarkAndSweep::write() { stats_.writes++; }
-
-std::string pointer_to_hex(void *ptr) {
-  auto v = reinterpret_cast<uintptr_t>(ptr);
-  std::string res;
-  for (size_t i = 0; i < 2 * sizeof(void *); i++) {
-    if (i > 0 && i % 2 == 0) {
-      res.append(" ");
-    }
-    auto digit = v % 16;
-    switch (digit) {
-      case 10:
-        res.append("a");
-        break;
-      case 11:
-        res.append("b");
-        break;
-      case 12:
-        res.append("c");
-        break;
-      case 13:
-        res.append("d");
-        break;
-      case 14:
-        res.append("e");
-        break;
-      case 15:
-        res.append("f");
-        break;
-      default:
-        res.append(std::format("{}", digit));
-        break;
-    }
-    v = v >> 4;
-  }
-  std::reverse(res.begin(), res.end());
-  return res;
-}
 
 std::string MarkAndSweep::dump() const {
   std::string dump;
