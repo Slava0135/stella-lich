@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** This macro is used whenever the runtime wants to READ a heap object's field.
  */
 #define GC_READ_BARRIER(object, field_index, read_code) (void *)(gc_read_barrier(object, field_index), read_code) // NO BARRIER
@@ -57,5 +61,9 @@ void print_gc_state();
  * May be useful for debugging.
  */
 void print_gc_roots();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

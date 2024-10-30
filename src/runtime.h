@@ -4,6 +4,10 @@
 #include <stdio.h>
 #include "gc.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** A Stella object with statically unknown number of fields.
  */
 typedef struct {
@@ -104,5 +108,9 @@ extern const int FIELD_COUNT_MASK;
 
 /** The bitmask for the Stella object tag. */
 extern const int TAG_MASK;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
