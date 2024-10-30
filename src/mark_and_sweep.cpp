@@ -29,6 +29,8 @@ MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
   space_ = std::make_unique<unsigned char[]>(max_memory);
   space_start_ = space_.get();
   space_end_ = &space_[max_memory];
+  assert(max_memory < (static_cast<size_t>(1) << (8 * sizeof(block_size_t))) &&
+         "max memory must be less than max block size");
   assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
          "space start address must be aligned to pointer size");
 
