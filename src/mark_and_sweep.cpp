@@ -4,11 +4,19 @@
 
 #include <algorithm>
 #include <format>
+#include <iostream>
 #include <limits>
 
 #include "tables.hpp"
 
 namespace gc {
+
+bool log(std::string msg) {
+#ifndef NDEBUG
+  std::cout << msg << std::endl;
+#endif
+  return true;
+}
 
 MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
                            bool skip_first_field)
@@ -26,20 +34,26 @@ MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
                    .writes = 0,
                    .collections = 0,
                    .collected_objects = std::vector<void *>()}) {
+  log("create space");
   space_ = std::make_unique<unsigned char[]>(max_memory);
   space_start_ = space_.get();
   space_end_ = &space_[max_memory];
-  assert(max_memory < (static_cast<size_t>(1) << (8 * sizeof(block_size_t))) &&
-         "max memory must be less than max block size");
+  auto max_allowed_memory = static_cast<size_t>(1)
+                            << (8 * sizeof(block_size_t));
+  assert(max_memory < max_allowed_memory &&
+         "max memory must be less than max block size" &&
+         log(std::format("{} is >= {}", max_memory, max_allowed_memory)));
   assert(reinterpret_cast<uintptr_t>(space_start_) % sizeof(pointer_t) == 0 &&
          "space start address must be aligned to pointer size");
 
+  log("create first block");
   auto first_block_idx = sizeof(Metadata);
   auto metadata = get_metadata(first_block_idx);
   metadata->block_size = max_memory;
   metadata->done = 0;
   metadata->mark = FREE;
 
+  log("init freelist");
   *reinterpret_cast<void **>(&space_[first_block_idx]) = nullptr;
   freelist_ = &space_[first_block_idx];
 }
@@ -76,6 +90,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
 
   void **prev_free_block = &freelist_;
   void *free_block = freelist_;
+  log("allocate");
   while (free_block) {
     auto block_idx = pointer_to_idx(free_block);
     auto block_meta = get_metadata(block_idx);
@@ -152,11 +167,12 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
     prev_free_block = reinterpret_cast<void **>(&space_[block_idx]);
     free_block = *prev_free_block;
   }
-  // out of free blocks
+  log("out of free blocks");
   return nullptr;
 }
 
 void MarkAndSweep::collect() {
+  log("collect");
   stats_.collections++;
   mark();
   sweep();
@@ -166,6 +182,7 @@ void MarkAndSweep::collect() {
 }
 
 void MarkAndSweep::mark() {
+  log("mark");
   for (auto root : roots_) {
     auto x = *root;
     if (!is_in_space(x)) {
@@ -226,6 +243,7 @@ void MarkAndSweep::dfs(void *x) {
 }
 
 void MarkAndSweep::sweep() {
+  log("sweep");
   stats_.collected_objects.clear();
   auto p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(space_start_) +
                                     sizeof(Metadata));
@@ -251,6 +269,7 @@ void MarkAndSweep::sweep() {
 }
 
 void MarkAndSweep::merge() {
+  log("merge");
   auto p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(space_start_) +
                                     sizeof(Metadata));
   freelist_ = nullptr;
