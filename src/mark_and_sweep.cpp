@@ -184,7 +184,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
     } else if (block_meta->block_size > to_allocate) {
       // can't split block, fill the block instead and zero unused part
       for (size_t idx = block_idx + to_allocate;
-           idx < block_idx - block_meta->block_size; idx++) {
+           idx < block_idx + block_meta->block_size - sizeof(Metadata); idx++) {
         space_[idx] = 0;
       }
       // update meta
@@ -251,18 +251,20 @@ void MarkAndSweep::dfs(void *x) {
     assert(obj_size % sizeof(pointer_t) == 0);
     auto field_n = obj_size / sizeof(pointer_t);
     if (i < field_n) {
-      auto field_i_addr = &space_[x_i + i * sizeof(pointer_t)];
-      auto y = *reinterpret_cast<void **>(field_i_addr);
-      if ((i > 0 || !skip_first_field) && is_in_space(y)) {
-        auto y_i = pointer_to_idx(y);
-        auto y_meta = get_metadata(y_i);
-        if (y_meta->mark == NOT_MARKED) {
-          *reinterpret_cast<void **>(field_i_addr) = tmp;
-          tmp = x;
-          x = y;
-          y_meta->mark = MARKED;
-          y_meta->done = 0;
-          continue;
+      if (i > 0 || !skip_first_field) {
+        auto field_i_addr = &space_[x_i + i * sizeof(pointer_t)];
+        auto y = *reinterpret_cast<void **>(field_i_addr);
+        if (is_in_space(y)) {
+          auto y_i = pointer_to_idx(y);
+          auto y_meta = get_metadata(y_i);
+          if (y_meta->mark == NOT_MARKED) {
+            *reinterpret_cast<void **>(field_i_addr) = tmp;
+            tmp = x;
+            x = y;
+            y_meta->mark = MARKED;
+            y_meta->done = 0;
+            continue;
+          }
         }
       }
       x_meta->done++;
@@ -388,7 +390,8 @@ void MarkAndSweep::read(void *obj) {
   if (is_in_space(obj)) {
     auto idx = pointer_to_idx(obj);
     auto meta = get_metadata(idx);
-    assert((meta->mark != FREE && "tried to access unexisting object") || log(pointer_to_hex(obj)));
+    assert((meta->mark != FREE && "tried to access unexisting object") ||
+           log(pointer_to_hex(obj)));
   }
 }
 
@@ -397,7 +400,8 @@ void MarkAndSweep::write(void *obj) {
   if (is_in_space(obj)) {
     auto idx = pointer_to_idx(obj);
     auto meta = get_metadata(idx);
-    assert((meta->mark != FREE && "tried to access unexisting object") || log(pointer_to_hex(obj)));
+    assert((meta->mark != FREE && "tried to access unexisting object") ||
+           log(pointer_to_hex(obj)));
   }
 }
 
