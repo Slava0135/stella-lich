@@ -31,9 +31,9 @@ void print_gc_alloc_stats() { std::cout << gcc.dump_stats() << std::endl; }
 
 void print_gc_state() { std::cout << gcc.dump() << std::endl; }
 
-void gc_read_barrier(void *, int) { gcc.read(); }
+void gc_read_barrier(void *obj, int) { gcc.read(obj); }
 
-void gc_write_barrier(void *, int, void *) { gcc.write(); }
+void gc_write_barrier(void *obj, int, void *) { gcc.write(obj); }
 
 void gc_push_root(void **ptr) { gcc.push_root(ptr); }
 

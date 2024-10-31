@@ -380,9 +380,23 @@ MarkAndSweep::Metadata *MarkAndSweep::get_metadata(size_t obj_idx) const {
   return res;
 }
 
-void MarkAndSweep::read() { stats_.reads++; }
+void MarkAndSweep::read(void *obj) {
+  stats_.reads++;
+  if (is_in_space(obj)) {
+    auto idx = pointer_to_idx(obj);
+    auto meta = get_metadata(idx);
+    assert((meta->mark != FREE && "tried to access unexisting object") || log(pointer_to_hex(obj)));
+  }
+}
 
-void MarkAndSweep::write() { stats_.writes++; }
+void MarkAndSweep::write(void *obj) {
+  stats_.writes++;
+  if (is_in_space(obj)) {
+    auto idx = pointer_to_idx(obj);
+    auto meta = get_metadata(idx);
+    assert((meta->mark != FREE && "tried to access unexisting object") || log(pointer_to_hex(obj)));
+  }
+}
 
 std::string MarkAndSweep::dump() const {
   std::string dump;

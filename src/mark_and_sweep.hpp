@@ -49,8 +49,8 @@ class MarkAndSweep {
   void *allocate(std::size_t bytes);
   void collect();
 
-  void read();
-  void write();
+  void read(void *obj);
+  void write(void *obj);
 
   std::string dump() const;
   std::string dump_stats() const;
