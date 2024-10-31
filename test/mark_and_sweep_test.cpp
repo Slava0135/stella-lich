@@ -322,7 +322,7 @@ TEST_CASE("random") {
     void *fields[];
   };
 
-  const size_t cycles = 100;
+  const size_t cycles = 1000;
   const size_t links_per_object = 2;
   const size_t objects_per_root = 10;
   const size_t max_fields = 3;
