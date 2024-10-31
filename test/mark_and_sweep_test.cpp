@@ -304,6 +304,16 @@ TEST_CASE("merge blocks") {
   std::cout << dump << std::endl;
 }
 
+template <typename T>
+std::ostream &operator<<(std::ostream &out, const std::set<T> &set) {
+  if (set.empty())
+    return out << "{}";
+  out << "{ " << *set.begin();
+  std::for_each(std::next(set.begin()), set.end(),
+                [&out](const T &element) { out << ", " << element; });
+  return out << " }";
+}
+
 TEST_CASE("random") {
   std::mt19937 gen(123);
 
@@ -370,6 +380,7 @@ TEST_CASE("random") {
       collector.push_root(reinterpret_cast<void **>(root));
     }
     // save all alive objects
+    size_t bytes_used = 0;
     alive_objects.clear();
     std::queue<Object *> queue;
     for (Object *root : roots) {
@@ -381,15 +392,22 @@ TEST_CASE("random") {
       if (!next || alive_objects.contains(next)) {
         continue;
       }
+      bytes_used += sizeof(size_t) + next->n_fields * sizeof(void *);
       alive_objects.insert(next);
       for (size_t i = 0; i < next->n_fields; i++) {
         queue.push(reinterpret_cast<Object *>(next->fields[i]));
       }
     }
     // collect
-    // dump = collector.dump();
-    // std::cout << dump << std::endl;
+    dump = collector.dump();
+    std::cout << dump << std::endl;
     collector.collect();
+    dump = collector.dump();
+    std::cout << dump << std::endl;
+    std::cout << alive_objects << std::endl;
+    stats = collector.get_stats();
+    REQUIRE(stats.n_blocks_used == alive_objects.size());
+    REQUIRE(stats.bytes_free + stats.bytes_used == size);
     // pop roots
     for (size_t i = 0; i < roots.size(); i++) {
       Object **root = &roots[roots.size() - 1 - i];
