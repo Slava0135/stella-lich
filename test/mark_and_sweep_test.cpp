@@ -1,10 +1,14 @@
 #include <assert.h>
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
+#include <iostream>
 #include <mark_and_sweep.hpp>
+#include <queue>
+#include <random>
 #include <set>
 #include <string>
-#include <iostream>
+#include <vector>
 
 #define NAME_OF(v) #v
 
@@ -26,8 +30,7 @@ TEST_CASE("no objects") {
   REQUIRE(stats.n_blocks_free == 1);
   REQUIRE(stats.bytes_used == 0);
   REQUIRE(stats.bytes_free == 32);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
 }
 
 TEST_CASE("push/pop roots") {
@@ -54,24 +57,21 @@ TEST_CASE("allocate") {
   REQUIRE(stats.n_blocks_free == 1);
   REQUIRE(stats.bytes_used == 16);
   REQUIRE(stats.bytes_free == 32);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) != nullptr);
   stats = collector.get_stats();
   REQUIRE(stats.n_blocks_used == 2);
   REQUIRE(stats.n_blocks_free == 1);
   REQUIRE(stats.bytes_used == 32);
   REQUIRE(stats.bytes_free == 16);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(9) == nullptr);
   stats = collector.get_stats();
   REQUIRE(stats.n_blocks_used == 2);
   REQUIRE(stats.n_blocks_free == 1);
   REQUIRE(stats.bytes_used == 32);
   REQUIRE(stats.bytes_free == 16);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
 }
 
 TEST_CASE("collect - no alive objects") {
@@ -199,8 +199,7 @@ TEST_CASE("collect - example 13.4 (A. Appel)") {
 
   REQUIRE(stats.n_blocks_used == 5);
   REQUIRE(stats.n_blocks_free == 3);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(stats.bytes_used == 5 * (8 + 16));
   REQUIRE(stats.bytes_used + stats.bytes_free == size);
   REQUIRE(stats.n_blocks_used_max == 7);
@@ -224,8 +223,7 @@ TEST_CASE("allocate / collect - take all memory") {
   REQUIRE(stats.n_blocks_free == 0);
   REQUIRE(stats.bytes_used == size);
   REQUIRE(stats.bytes_used + stats.bytes_free == size);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
 
   collector.collect();
@@ -236,8 +234,7 @@ TEST_CASE("allocate / collect - take all memory") {
   REQUIRE(stats.n_blocks_free == 4);
   REQUIRE(stats.bytes_used == 0);
   REQUIRE(stats.bytes_used + stats.bytes_free == size);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
 
   REQUIRE(collector.allocate(8) != nullptr);
   REQUIRE(collector.allocate(8) != nullptr);
@@ -250,8 +247,7 @@ TEST_CASE("allocate / collect - take all memory") {
   REQUIRE(stats.n_blocks_free == 0);
   REQUIRE(stats.bytes_used == size);
   REQUIRE(stats.bytes_used + stats.bytes_free == size);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
 
   collector.collect();
@@ -262,8 +258,7 @@ TEST_CASE("allocate / collect - take all memory") {
   REQUIRE(stats.n_blocks_free == 4);
   REQUIRE(stats.bytes_used == 0);
   REQUIRE(stats.bytes_used + stats.bytes_free == size);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
 }
 
 TEST_CASE("merge blocks") {
@@ -283,8 +278,7 @@ TEST_CASE("merge blocks") {
   REQUIRE(stats.n_blocks_free == 0);
   REQUIRE(stats.bytes_used == size);
   REQUIRE(stats.bytes_used + stats.bytes_free == size);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
   REQUIRE(collector.allocate(8) == nullptr);
   dump = collector.dump();
   std::cout << dump << std::endl;
@@ -295,8 +289,7 @@ TEST_CASE("merge blocks") {
   REQUIRE(stats.n_blocks_free == 2);
   REQUIRE(stats.bytes_used == 16);
   REQUIRE(stats.bytes_used + stats.bytes_free == size);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
   dump = collector.dump();
   std::cout << dump << std::endl;
 
@@ -306,8 +299,98 @@ TEST_CASE("merge blocks") {
   REQUIRE(stats.n_blocks_free == 1);
   REQUIRE(stats.bytes_used == 48);
   REQUIRE(stats.bytes_used + stats.bytes_free == size);
-  REQUIRE(stats.n_blocks_total ==
-          stats.n_blocks_used + stats.n_blocks_free);
+  REQUIRE(stats.n_blocks_total == stats.n_blocks_used + stats.n_blocks_free);
   dump = collector.dump();
   std::cout << dump << std::endl;
+}
+
+TEST_CASE("random") {
+  std::mt19937 gen(123);
+
+  struct Object {
+    size_t n_fields;
+    void *fields[];
+  };
+
+  const size_t cycles = 10;
+  const size_t links_per_object = 2;
+  const size_t objects_per_root = 10;
+  const size_t max_fields = 3;
+  const size_t size = 1024;
+
+  gc::MarkAndSweep collector(size, true, true);
+  gc::Stats stats;
+  std::string dump;
+
+  std::set<Object *> alive_objects;
+
+  for (size_t c = 0; c < cycles; c++) {
+    std::vector<Object *> roots;
+    // generate new objects until full
+    Object *obj = nullptr;
+    while (true) {
+      std::uniform_int_distribution<> field_distr(0, max_fields - 1);
+      auto n_fields = field_distr(gen);
+      obj = reinterpret_cast<Object *>(
+          collector.allocate(sizeof(size_t) + n_fields * sizeof(void *)));
+      if (!obj) {
+        break;
+      }
+      obj->n_fields = n_fields;
+      for (auto i = 0; i < n_fields; i++) {
+        obj->fields[i] = nullptr;
+      }
+      alive_objects.insert(obj);
+    }
+    // link objects randomly
+    std::vector<Object *> out;
+    assert(alive_objects.size() >= 2);
+    for (size_t i = 0; i < links_per_object * alive_objects.size(); i++) {
+      out.clear();
+      std::sample(alive_objects.begin(), alive_objects.end(),
+                  std::back_inserter(out), 2, gen);
+      auto obj = out[0];
+      if (obj->n_fields > 0) {
+        std::uniform_int_distribution<> field_distr(0, obj->n_fields - 1);
+        auto field_i = field_distr(gen);
+        obj->fields[field_i] = out[1];
+      }
+    }
+    // choose roots randomly
+    roots.clear();
+    auto n_roots = alive_objects.size() / objects_per_root;
+    assert(n_roots > 0);
+    std::sample(alive_objects.begin(), alive_objects.end(),
+                std::back_inserter(roots), n_roots, gen);
+    assert(!roots.empty());
+    // push roots
+    for (size_t i = 0; i < roots.size(); i++) {
+      Object **root = &roots[i];
+      collector.push_root(reinterpret_cast<void **>(root));
+    }
+    // save all alive objects
+    alive_objects.clear();
+    std::queue<Object *> queue;
+    for (Object *root : roots) {
+      queue.push(root);
+    }
+    while (!queue.empty()) {
+      Object *next = queue.front();
+      queue.pop();
+      if (!next || alive_objects.contains(next)) {
+        continue;
+      }
+      alive_objects.insert(next);
+      for (size_t i = 0; i < next->n_fields; i++) {
+        queue.push(reinterpret_cast<Object *>(next->fields[i]));
+      }
+    }
+    // collect
+    collector.collect();
+    // pop roots
+    for (size_t i = 0; i < roots.size(); i++) {
+      Object **root = &roots[roots.size() - 1 - i];
+      collector.pop_root(reinterpret_cast<void **>(root));
+    }
+  }
 }
