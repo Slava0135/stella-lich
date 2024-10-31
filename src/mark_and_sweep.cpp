@@ -447,6 +447,8 @@ std::string MarkAndSweep::dump_blocks() const {
   dump.append("BLOCKS\n");
   tables::Table blocks({23, 23, 23});
   blocks.separator();
+  blocks.add_row({"FREELIST", pointer_to_hex(freelist_), ""});
+  blocks.separator();
   blocks.add_row({"ADDRESS", "VALUE", "DESCRIPTION"});
   blocks.separator();
   auto p = reinterpret_cast<void *>(reinterpret_cast<uintptr_t>(space_start_) +
@@ -463,8 +465,20 @@ std::string MarkAndSweep::dump_blocks() const {
             {pointer_to_hex(v), pointer_to_hex(*reinterpret_cast<void **>(v)),
              std::format("size: {:10}   {}", block_meta->block_size, status)});
       } else {
-        blocks.add_row({pointer_to_hex(v),
-                        pointer_to_hex(*reinterpret_cast<void **>(v)), ""});
+        if (block_meta->mark == FREE) {
+          if (i == sizeof(pointer_t)) {
+            blocks.add_row({pointer_to_hex(v),
+                            pointer_to_hex(*reinterpret_cast<void **>(v)),
+                            "next free block"});
+          } else {
+            blocks.add_row({pointer_to_hex(v),
+                            pointer_to_hex(*reinterpret_cast<void **>(v)), ""});
+          }
+        } else {
+          blocks.add_row({pointer_to_hex(v),
+                          pointer_to_hex(*reinterpret_cast<void **>(v)),
+                          std::format("field #{}", i / sizeof(pointer_t))});
+        }
       }
     }
     blocks.separator();
