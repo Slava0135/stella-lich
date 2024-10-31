@@ -148,6 +148,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       // remove from freelist
       *prev_free_block = *reinterpret_cast<void **>(&space_[block_idx]);
       assert(is_valid_free_block(*prev_free_block));
+      log(pointer_to_hex(free_block));
       return free_block;
     } else if (block_meta->block_size > to_allocate &&
                block_meta->block_size - to_allocate >=
@@ -178,6 +179,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       // remove from freelist
       *prev_free_block = &space_[new_block_idx];
       assert(is_valid_free_block(*prev_free_block));
+      log(pointer_to_hex(free_block));
       return free_block;
     } else if (block_meta->block_size > to_allocate) {
       // can't split block, fill the block instead and zero unused part
@@ -200,6 +202,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       // remove from freelist
       *prev_free_block = *reinterpret_cast<void **>(&space_[block_idx]);
       assert(is_valid_free_block(*prev_free_block));
+      log(pointer_to_hex(free_block));
       return free_block;
     }
     prev_free_block = reinterpret_cast<void **>(&space_[block_idx]);
