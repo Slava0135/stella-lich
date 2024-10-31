@@ -369,8 +369,7 @@ TEST_CASE("random") {
     }
     // choose roots randomly
     roots.clear();
-    auto n_roots = alive_objects.size() / objects_per_root;
-    assert(n_roots > 0);
+    auto n_roots = 1 + alive_objects.size() / objects_per_root;
     std::sample(alive_objects.begin(), alive_objects.end(),
                 std::back_inserter(roots), n_roots, gen);
     assert(!roots.empty());
@@ -399,12 +398,12 @@ TEST_CASE("random") {
       }
     }
     // collect
-    dump = collector.dump();
-    std::cout << dump << std::endl;
+    // dump = collector.dump();
+    // std::cout << dump << std::endl;
     collector.collect();
-    dump = collector.dump();
-    std::cout << dump << std::endl;
-    std::cout << alive_objects << std::endl;
+    // dump = collector.dump();
+    // std::cout << dump << std::endl;
+    // std::cout << alive_objects << std::endl;
     stats = collector.get_stats();
     REQUIRE(stats.n_blocks_used == alive_objects.size());
     REQUIRE(stats.bytes_free + stats.bytes_used == size);
