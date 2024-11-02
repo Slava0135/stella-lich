@@ -97,7 +97,7 @@ MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
 
 Stats MarkAndSweep::get_stats() const { return this->stats_; }
 
-void MarkAndSweep::push_root(void **root) { 
+void MarkAndSweep::push_root(void **root) {
   this->roots_.push_back(root);
   if (incremental && phase_ == MARK) {
     mark_queue_.push(*root);
@@ -505,6 +505,22 @@ std::string MarkAndSweep::dump_blocks() const {
   tables::Table blocks({23, 23, 23});
   blocks.separator();
   blocks.add_row({"FREELIST", pointer_to_hex(freelist_), ""});
+  blocks.separator();
+  if (incremental) {
+    switch (phase_) {
+    case MARK:
+      blocks.add_row({"PHASE", "MARK", ""});
+      blocks.add_row(
+          {"NEXT",
+           pointer_to_hex(mark_queue_.empty() ? nullptr : mark_queue_.front()),
+           ""});
+      break;
+    case SWEEP:
+      blocks.add_row({"PHASE", "SWEEP", ""});
+      blocks.add_row({"NEXT", pointer_to_hex(resume_sweep_from), ""});
+      break;
+    }
+  }
   blocks.separator();
   blocks.add_row({"ADDRESS", "VALUE", "DESCRIPTION"});
   blocks.separator();
