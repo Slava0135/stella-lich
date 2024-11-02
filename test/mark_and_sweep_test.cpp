@@ -439,7 +439,7 @@ TEST_CASE("random (incremental)") {
 
   const size_t size = 10*1024;
 
-  const size_t iterations = 10000;
+  const size_t iterations = 100000;
   const size_t links_per_iter = 10;
   const size_t max_fields = 5;
   const size_t target_roots_n = 10;
