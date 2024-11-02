@@ -414,3 +414,92 @@ TEST_CASE("random") {
     }
   }
 }
+
+TEST_CASE("random (incremental)") {
+  std::mt19937 gen(123);
+
+  struct Object {
+    size_t n_fields;
+    void *fields[];
+  };
+
+  const size_t size = 1024;
+  const size_t iterations = 10000;
+
+  const size_t max_fields = 3;
+
+  const size_t target_roots_n = 5;
+
+  const auto remove_root_chance = 0.1;
+  const auto add_links_per_iteration = max_fields;
+
+  gc::MarkAndSweep collector(size, true, true, true);
+  gc::Stats stats;
+  std::string dump;
+
+  std::vector<Object *> roots;
+  std::set<Object *> alive_objects;
+
+  for (size_t i = 0; i < iterations; i++) {
+    // find alive objects
+    alive_objects.clear();
+    std::queue<Object *> queue;
+    for (Object *root : roots) {
+      queue.push(root);
+    }
+    while (!queue.empty()) {
+      Object *next = queue.front();
+      queue.pop();
+      if (!next || alive_objects.contains(next)) {
+        continue;
+      }
+      alive_objects.insert(next);
+      for (size_t i = 0; i < next->n_fields; i++) {
+        queue.push(reinterpret_cast<Object *>(next->fields[i]));
+      }
+    }
+    // check invariants
+    stats = collector.get_stats();
+    REQUIRE(stats.n_blocks_used >= alive_objects.size());
+    REQUIRE(stats.bytes_free + stats.bytes_used == size);
+    // allocate new object
+    std::uniform_int_distribution<> field_distr(0, max_fields - 1);
+    auto n_fields = field_distr(gen);
+    auto new_obj = reinterpret_cast<Object *>(
+        collector.allocate(sizeof(size_t) + n_fields * sizeof(void *)));
+    if (!new_obj) {
+      collector.collect();
+      stats = collector.get_stats();
+      REQUIRE(stats.n_blocks_used == alive_objects.size());
+      REQUIRE(stats.bytes_free + stats.bytes_used == size);
+    } else {
+      alive_objects.insert(new_obj);
+      if (roots.size() < target_roots_n) {
+        roots.push_back(new_obj);
+      }
+    }
+    // remove root randomly
+    std::uniform_real_distribution<> chance_distr(0.0, 1.0);
+    if (chance_distr(gen) <= remove_root_chance) {
+      std::uniform_int_distribution<> root_distr(0, roots.size() - 1);
+      auto root_i = root_distr(gen);
+      roots.erase(roots.begin() + root_i);
+    }
+    // link objects randomly
+    std::vector<Object *> out;
+    if (alive_objects.size() >= 2) {
+      for (size_t i = 0; i < add_links_per_iteration; i++) {
+        out.clear();
+        std::sample(alive_objects.begin(), alive_objects.end(),
+                    std::back_inserter(out), 2, gen);
+        auto obj = out[0];
+        if (obj->n_fields > 0) {
+          std::uniform_int_distribution<> field_distr(0, obj->n_fields - 1);
+          auto field_i = field_distr(gen);
+          collector.write(obj, out[1]);
+          obj->fields[field_i] = out[1];
+        }
+      }
+    }
+  }
+}
