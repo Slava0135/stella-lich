@@ -30,7 +30,7 @@ void *gc_alloc(size_t size_in_bytes) {
   if (try_alloc) {
     return try_alloc;
   }
-  std::cout << "[ERROR] out of memory!" << std::endl;
+  std::cerr << "[ERROR] out of memory!" << std::endl;
   print_gc_alloc_stats();
   exit(1);
 }
