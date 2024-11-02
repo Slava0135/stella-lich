@@ -21,7 +21,7 @@ void *gc_alloc(size_t size_in_bytes) {
     return try_alloc;
   }
   std::cout << "[ERROR] out of memory!" << std::endl;
-  print_gc_state();
+  print_gc_alloc_stats();
   exit(1);
 }
 
