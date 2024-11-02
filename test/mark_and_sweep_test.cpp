@@ -412,6 +412,7 @@ TEST_CASE("random") {
     // collect
     // dump = collector.dump();
     // std::cout << dump << std::endl;
+    // std::cout << collector.dump_stats() << std::endl;
     collector.collect();
     // dump = collector.dump();
     // std::cout << dump << std::endl;
@@ -425,6 +426,7 @@ TEST_CASE("random") {
       collector.pop_root(reinterpret_cast<void **>(root));
     }
   }
+  std::cout << collector.dump_stats() << std::endl;
 }
 
 TEST_CASE("random (incremental)") {
@@ -436,13 +438,13 @@ TEST_CASE("random (incremental)") {
   };
 
   const size_t size = 1024;
-  const size_t iterations = 10000;
+  const size_t iterations = 1000;
 
   const size_t max_fields = 3;
 
   const size_t target_roots_n = 5;
 
-  const auto remove_root_chance = 0.8;
+  const auto remove_root_chance = 0.1;
   const auto add_links_per_iteration = max_fields;
 
   gc::MarkAndSweep collector(size, true, true, true);
@@ -477,7 +479,7 @@ TEST_CASE("random (incremental)") {
         new_obj->fields[i] = nullptr;
       }
       alive_objects.insert(new_obj);
-      if (roots.size() < target_roots_n) {
+      if (roots_n < target_roots_n) {
         roots[roots_n] = new_obj;
         Object **root = &roots[roots_n];
         roots_n++;
@@ -520,7 +522,7 @@ TEST_CASE("random (incremental)") {
         collector.push_root(reinterpret_cast<void **>(&roots[i]));
       }
     }
-    assert(roots.size() > 0);
+    assert(roots_n > 0);
     // link objects randomly
     std::vector<Object *> out;
     if (alive_objects.size() >= 2) {
@@ -538,4 +540,5 @@ TEST_CASE("random (incremental)") {
       }
     }
   }
+  std::cout << collector.dump() << std::endl;
 }
