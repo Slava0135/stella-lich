@@ -549,7 +549,6 @@ std::string MarkAndSweep::dump_blocks() const {
 
 void MarkAndSweep::incr_collect(size_t bytes) {
   log("incremental collect");
-  log(dump());
   switch (phase_) {
   case MARK:
     incr_mark(bytes);
@@ -558,7 +557,6 @@ void MarkAndSweep::incr_collect(size_t bytes) {
     incr_sweep(bytes);
     break;
   }
-  log(dump());
 }
 
 void MarkAndSweep::incr_mark(size_t bytes) {
