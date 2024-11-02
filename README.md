@@ -28,6 +28,8 @@ To build library:
 cmake --build build --target lich .
 ```
 
+Library artifact `liblich.a` will be located in `./out` directory.
+
 ## Tests
 
 To build tests:
