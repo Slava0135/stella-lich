@@ -244,6 +244,17 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
 
 void MarkAndSweep::collect() {
   log("collect");
+  if (incremental) {
+    while (!mark_queue_.empty()) {
+      mark_queue_.pop();
+    }
+    phase_ = MARK;
+    for (auto root : roots_) {
+      if (is_in_space(*root)) {
+        mark_queue_.push(*root);
+      }
+    }
+  }
   stats_.collections++;
   mark();
   sweep();
