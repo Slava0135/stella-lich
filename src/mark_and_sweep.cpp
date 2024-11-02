@@ -99,8 +99,14 @@ Stats MarkAndSweep::get_stats() const { return this->stats_; }
 
 void MarkAndSweep::push_root(void **root) {
   this->roots_.push_back(root);
-  if (incremental && phase_ == MARK && is_in_space(*root)) {
-    mark_queue_.push(*root);
+  if (incremental && is_in_space(*root)) {
+    if (phase_ == MARK) {
+      mark_queue_.push(*root);
+    } else if (phase_ == SWEEP && resume_sweep_from <= *root) {
+      auto block_idx = pointer_to_idx(*root);
+      auto block_meta = get_metadata(block_idx);
+      block_meta->mark = MARKED;
+    }
   }
 }
 
