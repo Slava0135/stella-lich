@@ -456,6 +456,7 @@ TEST_CASE("random (incremental)") {
         continue;
       }
       alive_objects.insert(next);
+      collector.read(next);
       for (size_t i = 0; i < next->n_fields; i++) {
         queue.push(reinterpret_cast<Object *>(next->fields[i]));
       }
