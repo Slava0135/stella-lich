@@ -513,8 +513,8 @@ std::string MarkAndSweep::dump_blocks() const {
   tables::Table blocks({23, 23, 23});
   blocks.separator();
   blocks.add_row({"FREELIST", pointer_to_hex(freelist_), ""});
-  blocks.separator();
   if (incremental) {
+    blocks.separator();
     switch (phase_) {
     case MARK:
       blocks.add_row({"PHASE", "MARK", ""});
