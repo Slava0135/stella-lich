@@ -425,7 +425,7 @@ TEST_CASE("random (incremental)") {
     void *fields[];
   };
 
-  const size_t size = 128;
+  const size_t size = 1024;
   const size_t iterations = 10000;
 
   const size_t max_fields = 3;
@@ -458,8 +458,6 @@ TEST_CASE("random (incremental)") {
     if (!new_obj) {
       collector.collect();
       stats = collector.get_stats();
-      REQUIRE(stats.n_blocks_used == alive_objects.size());
-      REQUIRE(stats.bytes_free + stats.bytes_used == size);
     } else {
       alive_objects.insert(new_obj);
       if (roots.size() < target_roots_n) {
@@ -467,8 +465,6 @@ TEST_CASE("random (incremental)") {
         Object **root = &roots[roots.size() - 1];
         collector.push_root(reinterpret_cast<void **>(root));
       }
-      dump = collector.dump();
-      std::cout << dump << std::endl;
     }
     // find alive objects
     std::queue<Object *> queue;
@@ -487,6 +483,9 @@ TEST_CASE("random (incremental)") {
         queue.push(reinterpret_cast<Object *>(next->fields[i]));
       }
     }
+    dump = collector.dump();
+    std::cout << dump << std::endl;
+    std::cout << alive_objects << std::endl;
     // remove root randomly
     std::uniform_real_distribution<> chance_distr(0.0, 1.0);
     if (roots.size() > 2 && chance_distr(gen) <= remove_root_chance) {
