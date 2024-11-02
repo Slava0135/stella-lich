@@ -437,15 +437,14 @@ TEST_CASE("random (incremental)") {
     void *fields[];
   };
 
-  const size_t size = 1024;
-  const size_t iterations = 1000;
+  const size_t size = 10*1024;
 
-  const size_t max_fields = 3;
-
-  const size_t target_roots_n = 5;
-
+  const size_t iterations = 10000;
+  const size_t links_per_iter = 10;
+  const size_t max_fields = 5;
+  const size_t target_roots_n = 10;
   const auto remove_root_chance = 0.1;
-  const auto add_links_per_iteration = max_fields;
+
 
   gc::MarkAndSweep collector(size, true, true, true);
   gc::Stats stats;
@@ -470,6 +469,8 @@ TEST_CASE("random (incremental)") {
     auto n_fields = field_distr(gen);
     auto new_obj = reinterpret_cast<Object *>(
         collector.allocate(sizeof(size_t) + n_fields * sizeof(void *)));
+    // dump = collector.dump();
+    // std::cout << dump << std::endl;
     if (!new_obj) {
       collector.collect();
       stats = collector.get_stats();
@@ -488,8 +489,8 @@ TEST_CASE("random (incremental)") {
     }
     // find alive objects
     std::queue<Object *> queue;
-    for (Object *root : roots) {
-      queue.push(root);
+    for (size_t i = 0; i < roots_n; i ++) {
+      queue.push(roots[i]);
     }
     while (!queue.empty()) {
       Object *next = queue.front();
@@ -503,7 +504,7 @@ TEST_CASE("random (incremental)") {
         queue.push(reinterpret_cast<Object *>(next->fields[i]));
       }
     }
-    dump = collector.dump();
+    // dump = collector.dump();
     // std::cout << dump << std::endl;
     // std::cout << alive_objects << std::endl;
     // remove root randomly
@@ -526,7 +527,7 @@ TEST_CASE("random (incremental)") {
     // link objects randomly
     std::vector<Object *> out;
     if (alive_objects.size() >= 2) {
-      for (size_t i = 0; i < add_links_per_iteration; i++) {
+      for (size_t i = 0; i < links_per_iter; i++) {
         out.clear();
         std::sample(alive_objects.begin(), alive_objects.end(),
                     std::back_inserter(out), 2, gen);
@@ -540,5 +541,5 @@ TEST_CASE("random (incremental)") {
       }
     }
   }
-  std::cout << collector.dump() << std::endl;
+  std::cout << collector.dump_stats() << std::endl;
 }

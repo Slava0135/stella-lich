@@ -244,6 +244,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
 
 void MarkAndSweep::collect() {
   log("collect");
+  // invalidate incremental state
   if (incremental) {
     auto p = reinterpret_cast<void *>(
         reinterpret_cast<uintptr_t>(space_start_) + sizeof(Metadata));
