@@ -340,7 +340,7 @@ TEST_CASE("random") {
     // generate new objects until full
     Object *obj = nullptr;
     while (true) {
-      std::uniform_int_distribution<> field_distr(0, max_fields - 1);
+      std::uniform_int_distribution<> field_distr(0, max_fields);
       auto n_fields = field_distr(gen);
       obj = reinterpret_cast<Object *>(
           collector.allocate(sizeof(size_t) + n_fields * sizeof(void *)));
@@ -451,7 +451,7 @@ TEST_CASE("random (incremental)") {
     REQUIRE(stats.n_blocks_used >= alive_objects.size());
     REQUIRE(stats.bytes_free + stats.bytes_used == size);
     // allocate new object
-    std::uniform_int_distribution<> field_distr(0, max_fields - 1);
+    std::uniform_int_distribution<> field_distr(0, max_fields);
     auto n_fields = field_distr(gen);
     auto new_obj = reinterpret_cast<Object *>(
         collector.allocate(sizeof(size_t) + n_fields * sizeof(void *)));
