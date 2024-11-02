@@ -325,8 +325,8 @@ TEST_CASE("random") {
   const size_t cycles = 1000;
   const size_t links_per_object = 2;
   const size_t objects_per_root = 10;
-  const size_t max_fields = 3;
-  const size_t size = 1024;
+  const size_t max_fields = 5;
+  const size_t size = 10*1024;
 
   gc::MarkAndSweep collector(size, true, true, false);
   gc::Stats stats;
@@ -364,6 +364,7 @@ TEST_CASE("random") {
       if (obj->n_fields > 0) {
         std::uniform_int_distribution<> field_distr(0, obj->n_fields - 1);
         auto field_i = field_distr(gen);
+        collector.write(obj, out[1]);
         obj->fields[field_i] = out[1];
       }
     }
@@ -393,6 +394,7 @@ TEST_CASE("random") {
       }
       bytes_used += sizeof(size_t) + next->n_fields * sizeof(void *);
       alive_objects.insert(next);
+      collector.read(next);
       for (size_t i = 0; i < next->n_fields; i++) {
         queue.push(reinterpret_cast<Object *>(next->fields[i]));
       }
