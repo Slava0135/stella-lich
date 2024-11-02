@@ -99,7 +99,7 @@ Stats MarkAndSweep::get_stats() const { return this->stats_; }
 
 void MarkAndSweep::push_root(void **root) {
   this->roots_.push_back(root);
-  if (incremental && phase_ == MARK) {
+  if (incremental && phase_ == MARK && is_in_space(*root)) {
     mark_queue_.push(*root);
   }
 }
@@ -633,7 +633,9 @@ void MarkAndSweep::incr_sweep(size_t bytes) {
     if (p >= space_end_) {
       phase_ = MARK;
       for (auto root : roots_) {
-        mark_queue_.push(*root);
+        if (is_in_space(*root)) {
+          mark_queue_.push(*root);
+        }
       }
       stats_.incremental_collections++;
       return;
