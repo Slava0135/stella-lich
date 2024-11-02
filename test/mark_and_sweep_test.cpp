@@ -314,6 +314,16 @@ std::ostream &operator<<(std::ostream &out, const std::set<T> &set) {
   return out << " }";
 }
 
+template <typename T>
+std::ostream &operator<<(std::ostream &out, const std::vector<T> &v) {
+  if (v.empty())
+    return out << "{}";
+  out << "{ " << *v.begin();
+  std::for_each(std::next(v.begin()), v.end(),
+                [&out](const T &element) { out << ", " << element; });
+  return out << " }";
+}
+
 TEST_CASE("random") {
   std::mt19937 gen(123);
 
@@ -432,17 +442,20 @@ TEST_CASE("random (incremental)") {
 
   const size_t target_roots_n = 5;
 
-  const auto remove_root_chance = 0.1;
+  const auto remove_root_chance = 0.8;
   const auto add_links_per_iteration = max_fields;
 
   gc::MarkAndSweep collector(size, true, true, true);
   gc::Stats stats;
   std::string dump;
 
-  std::vector<Object *> roots;
+  std::array<Object *, 1000> roots;
+  size_t roots_n = 0;
+
   std::set<Object *> alive_objects;
 
   for (size_t i = 0; i < iterations; i++) {
+    std::cout << "iteration: " << i << std::endl;
     alive_objects.clear();
     // check invariants
     // dump = collector.dump();
@@ -465,8 +478,9 @@ TEST_CASE("random (incremental)") {
       }
       alive_objects.insert(new_obj);
       if (roots.size() < target_roots_n) {
-        roots.push_back(new_obj);
-        Object **root = &roots[roots.size() - 1];
+        roots[roots_n] = new_obj;
+        Object **root = &roots[roots_n];
+        roots_n++;
         collector.push_root(reinterpret_cast<void **>(root));
       }
     }
@@ -488,26 +502,22 @@ TEST_CASE("random (incremental)") {
       }
     }
     dump = collector.dump();
-    std::cout << dump << std::endl;
-    std::cout << alive_objects << std::endl;
+    // std::cout << dump << std::endl;
+    // std::cout << alive_objects << std::endl;
     // remove root randomly
     std::uniform_real_distribution<> chance_distr(0.0, 1.0);
-    if (roots.size() > 2 && chance_distr(gen) <= remove_root_chance) {
-      std::uniform_int_distribution<> root_distr(0, roots.size() - 1);
-      auto root_i = root_distr(gen);
-      auto tmp = roots;
-      for (size_t i = 0; i < roots.size(); i++) {
-        Object **root = &roots[roots.size() - i - 1];
-        collector.pop_root(reinterpret_cast<void **>(root));
-        if (i != static_cast<size_t>(root_i)) {
-          tmp.push_back(*root);
-        }
+    if (roots_n > 2 && chance_distr(gen) <= remove_root_chance) {
+      std::uniform_int_distribution<> root_distr(0, roots_n - 1);
+      for (size_t i = 0; i < roots_n; i++) {
+        collector.pop_root(reinterpret_cast<void **>(&roots[roots_n - i - 1]));
       }
-      assert(tmp.size() == roots.size() - 1);
-      roots = tmp;
-      for (size_t i = 0; i < roots.size(); i++) {
-        Object **root = &roots[i];
-        collector.push_root(reinterpret_cast<void **>(root));
+      auto root_i = root_distr(gen);
+      for (size_t i = root_i + 1; i < roots_n; i++) {
+        roots[i - 1] = roots[i];
+      }
+      roots_n--;
+      for (size_t i = 0; i < roots_n; i++) {
+        collector.push_root(reinterpret_cast<void **>(&roots[i]));
       }
     }
     assert(roots.size() > 0);
