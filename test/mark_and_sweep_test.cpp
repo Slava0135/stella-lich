@@ -326,7 +326,7 @@ TEST_CASE("random") {
   const size_t links_per_object = 2;
   const size_t objects_per_root = 10;
   const size_t max_fields = 5;
-  const size_t size = 10*1024;
+  const size_t size = 10 * 1024;
 
   gc::MarkAndSweep collector(size, true, true, false);
   gc::Stats stats;
@@ -443,27 +443,10 @@ TEST_CASE("random (incremental)") {
   std::set<Object *> alive_objects;
 
   for (size_t i = 0; i < iterations; i++) {
-    // find alive objects
     alive_objects.clear();
-    std::queue<Object *> queue;
-    for (Object *root : roots) {
-      queue.push(root);
-    }
-    while (!queue.empty()) {
-      Object *next = queue.front();
-      queue.pop();
-      if (!next || alive_objects.contains(next)) {
-        continue;
-      }
-      alive_objects.insert(next);
-      collector.read(next);
-      for (size_t i = 0; i < next->n_fields; i++) {
-        queue.push(reinterpret_cast<Object *>(next->fields[i]));
-      }
-    }
     // check invariants
-    dump = collector.dump();
-    std::cout << dump << std::endl;
+    // dump = collector.dump();
+    // std::cout << dump << std::endl;
     stats = collector.get_stats();
     REQUIRE(stats.n_blocks_used >= alive_objects.size());
     REQUIRE(stats.bytes_free + stats.bytes_used == size);
@@ -481,6 +464,27 @@ TEST_CASE("random (incremental)") {
       alive_objects.insert(new_obj);
       if (roots.size() < target_roots_n) {
         roots.push_back(new_obj);
+        Object **root = &roots[roots.size() - 1];
+        collector.push_root(reinterpret_cast<void **>(root));
+      }
+      dump = collector.dump();
+      std::cout << dump << std::endl;
+    }
+    // find alive objects
+    std::queue<Object *> queue;
+    for (Object *root : roots) {
+      queue.push(root);
+    }
+    while (!queue.empty()) {
+      Object *next = queue.front();
+      queue.pop();
+      if (!next || alive_objects.contains(next)) {
+        continue;
+      }
+      alive_objects.insert(next);
+      collector.read(next);
+      for (size_t i = 0; i < next->n_fields; i++) {
+        queue.push(reinterpret_cast<Object *>(next->fields[i]));
       }
     }
     // remove root randomly
@@ -488,8 +492,17 @@ TEST_CASE("random (incremental)") {
     if (roots.size() > 2 && chance_distr(gen) <= remove_root_chance) {
       std::uniform_int_distribution<> root_distr(0, roots.size() - 1);
       auto root_i = root_distr(gen);
+      for (size_t i = 0; i < roots.size(); i++) {
+        Object **root = &roots[roots.size() - i - 1];
+        collector.pop_root(reinterpret_cast<void **>(root));
+      }
       roots.erase(roots.begin() + root_i);
+      for (size_t i = 0; i < roots.size(); i++) {
+        Object **root = &roots[roots.size() - i - 1];
+        collector.push_root(reinterpret_cast<void **>(root));
+      }
     }
+    assert(roots.size() > 0);
     // link objects randomly
     std::vector<Object *> out;
     if (alive_objects.size() >= 2) {
