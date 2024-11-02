@@ -27,27 +27,27 @@ std::string pointer_to_hex(void *ptr) {
     }
     auto digit = v % 16;
     switch (digit) {
-      case 10:
-        res.append("a");
-        break;
-      case 11:
-        res.append("b");
-        break;
-      case 12:
-        res.append("c");
-        break;
-      case 13:
-        res.append("d");
-        break;
-      case 14:
-        res.append("e");
-        break;
-      case 15:
-        res.append("f");
-        break;
-      default:
-        res.append(std::format("{}", digit));
-        break;
+    case 10:
+      res.append("a");
+      break;
+    case 11:
+      res.append("b");
+      break;
+    case 12:
+      res.append("c");
+      break;
+    case 13:
+      res.append("d");
+      break;
+    case 14:
+      res.append("e");
+      break;
+    case 15:
+      res.append("f");
+      break;
+    default:
+      res.append(std::format("{}", digit));
+      break;
     }
     v = v >> 4;
   }
@@ -56,10 +56,9 @@ std::string pointer_to_hex(void *ptr) {
 }
 
 MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
-                           bool skip_first_field)
-    : max_memory(max_memory),
-      merge_blocks(merge_blocks),
-      skip_first_field(skip_first_field),
+                           bool skip_first_field, bool incremental)
+    : max_memory(max_memory), merge_blocks(merge_blocks),
+      skip_first_field(skip_first_field), incremental(incremental),
       stats_(Stats{.n_blocks_used = 0,
                    .n_blocks_free = 1,
                    .n_blocks_total = 1,
@@ -125,6 +124,10 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
   assert(allocate_at_least <= to_allocate &&
          "allocated memory must fit all object fields and metadata");
 
+  if (incremental) {
+    incr_collect(bytes_to_free_per_alloc_ * to_allocate);
+  }
+
   void **prev_free_block = &freelist_;
   void *free_block = freelist_;
   log("allocate");
@@ -136,6 +139,9 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       // update meta
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
+      if (incremental && phase_ == SWEEP && resume_sweep_from <= free_block) {
+        block_meta->mark = MARKED;
+      }
       // update stats
       stats_.n_blocks_free--;
       stats_.n_blocks_used++;
@@ -168,6 +174,9 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       block_meta->block_size = to_allocate;
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
+      if (incremental && phase_ == SWEEP && resume_sweep_from <= free_block) {
+        block_meta->mark = MARKED;
+      }
       // update stats
       stats_.n_blocks_total++;
       stats_.n_blocks_used++;
@@ -195,6 +204,9 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       // update meta
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
+      if (incremental && phase_ == SWEEP && resume_sweep_from <= free_block) {
+        block_meta->mark = MARKED;
+      }
       // update stats
       stats_.n_blocks_used++;
       stats_.n_blocks_free--;
@@ -401,13 +413,20 @@ void MarkAndSweep::read(void *obj) {
   }
 }
 
-void MarkAndSweep::write(void *obj) {
+void MarkAndSweep::write(void *obj, void *contents) {
   stats_.writes++;
-  if (is_in_space(obj)) {
-    auto idx = pointer_to_idx(obj);
-    auto meta = get_metadata(idx);
-    assert((meta->mark != FREE && "tried to access unexisting object") ||
+  if (is_in_space(obj) && is_in_space(contents)) {
+    auto obj_idx = pointer_to_idx(obj);
+    auto obj_meta = get_metadata(obj_idx);
+    assert((obj_meta->mark != FREE && "tried to access unexisting object") ||
            log(pointer_to_hex(obj)));
+    if (incremental && phase_ == MARK && obj_meta->mark == MARKED) {
+      auto contents_idx = pointer_to_idx(contents);
+      auto contents_meta = get_metadata(contents_idx);
+      if (contents_meta->mark == NOT_MARKED) {
+        mark_queue_.push(contents);
+      }
+    }
   }
 }
 
@@ -424,8 +443,13 @@ std::string MarkAndSweep::dump_stats() const {
   dump.append("STATS\n");
   tables::Table stats({26, 16, 17});
   stats.separator();
-  stats.add_row(
-      {"COLLECTIONS", "", std::format("{:10} cycles", stats_.collections)});
+  stats.add_row({"COLLECTIONS (full)", "",
+                 std::format("{:10} cycles", stats_.collections)});
+  if (incremental) {
+    stats.add_row(
+        {"COLLECTIONS (incremental)", "",
+         std::format("{:10} cycles", stats_.incremental_collections)});
+  }
   stats.separator();
   stats.add_row({"MEMORY USED (max)",
                  std::format("{:10} bytes", stats_.bytes_used_max),
@@ -515,4 +539,82 @@ std::string MarkAndSweep::dump_blocks() const {
   return dump;
 }
 
-}  // namespace gc
+// incremental collection
+
+void MarkAndSweep::incr_collect(size_t bytes) {
+  log("incremental collect");
+  switch (phase_) {
+  case MARK:
+    incr_mark(bytes);
+    break;
+  case SWEEP:
+    incr_sweep(bytes);
+    break;
+  }
+}
+
+void MarkAndSweep::incr_mark(size_t bytes) {
+  log("incremental mark");
+  size_t bytes_marked = 0;
+  while (bytes_marked < bytes) {
+    if (mark_queue_.empty()) {
+      stats_.collected_objects.clear();
+      phase_ = SWEEP;
+      resume_sweep_from = reinterpret_cast<void *>(
+          reinterpret_cast<uintptr_t>(space_start_) + sizeof(Metadata));
+      return;
+    }
+    auto next = mark_queue_.front();
+    mark_queue_.pop();
+    auto next_idx = pointer_to_idx(next);
+    auto next_meta = get_metadata(next_idx);
+    if (next_meta->mark == NOT_MARKED) {
+      bytes_marked += next_meta->block_size;
+      next_meta->mark = MARKED;
+      auto obj_size = next_meta->block_size - sizeof(Metadata);
+      assert(obj_size % sizeof(pointer_t) == 0);
+      auto field_n = obj_size / sizeof(pointer_t);
+      for (size_t i = 0; i < field_n; i++) {
+        auto field_i = *reinterpret_cast<void **>(
+            &space_[next_idx + i * sizeof(pointer_t)]);
+        if (is_in_space(field_i)) {
+          mark_queue_.push(field_i);
+        }
+      }
+    }
+  }
+}
+
+void MarkAndSweep::incr_sweep(size_t bytes) {
+  log("incremental sweep");
+  auto p = resume_sweep_from;
+  size_t bytes_marked = 0;
+  while (bytes_marked < bytes) {
+    auto block_idx = pointer_to_idx(p);
+    auto block_meta = get_metadata(block_idx);
+    bytes_marked += block_meta->block_size;
+    if (block_meta->mark == MARKED) {
+      block_meta->mark = NOT_MARKED;
+    } else if (block_meta->mark == NOT_MARKED) {
+      block_meta->mark = FREE;
+      *reinterpret_cast<void **>(p) = freelist_;
+      freelist_ = p;
+      assert(stats_.n_blocks_used > 0);
+      assert(stats_.bytes_used >= block_meta->block_size);
+      stats_.collected_objects.push_back(p);
+      stats_.n_blocks_used--;
+      stats_.n_blocks_free++;
+      stats_.bytes_used -= block_meta->block_size;
+      stats_.bytes_free += block_meta->block_size;
+    }
+    p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
+    if (p >= space_end_) {
+      phase_ = MARK;
+      stats_.incremental_collections++;
+      return;
+    }
+    resume_sweep_from = p;
+  }
+}
+
+} // namespace gc

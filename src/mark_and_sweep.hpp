@@ -7,6 +7,7 @@
 #include <limits>
 #include <memory>
 #include <vector>
+#include <queue>
 
 namespace gc {
 
@@ -24,21 +25,24 @@ struct Stats {
   size_t writes;
 
   size_t collections;
+  size_t incremental_collections;
   std::vector<void *> collected_objects;
 };
 
 class MarkAndSweep {
- public:
+public:
   const size_t max_memory;
   const bool merge_blocks;
   const bool skip_first_field;
+  const bool incremental;
 
   using block_size_t = uint32_t;
   using done_t = uint16_t;
   using mark_t = uint16_t;
   using pointer_t = void *;
 
-  MarkAndSweep(size_t max_memory, bool merge_blocks, bool skip_first_field);
+  MarkAndSweep(size_t max_memory, bool merge_blocks, bool skip_first_field,
+               bool incremental);
 
   Stats get_stats() const;
   const std::vector<void **> &get_roots() const;
@@ -50,14 +54,14 @@ class MarkAndSweep {
   void collect();
 
   void read(void *obj);
-  void write(void *obj);
+  void write(void *to, void *contents);
 
   std::string dump() const;
   std::string dump_stats() const;
   std::string dump_roots() const;
   std::string dump_blocks() const;
 
- private:
+private:
   enum Mark : mark_t {
     NOT_MARKED,
     MARKED,
@@ -90,6 +94,22 @@ class MarkAndSweep {
 
   size_t pointer_to_idx(void const *obj) const;
   Metadata *get_metadata(size_t obj_idx) const;
+
+  // only used in incremental mode
+  // vvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+  const size_t bytes_to_free_per_alloc_ = 2;
+  enum Phase {
+    MARK,
+    SWEEP,
+  };
+  Phase phase_ = Phase::MARK;
+  std::queue<void *> mark_queue_;
+  void *resume_sweep_from;
+
+  void incr_collect(std::size_t bytes);
+  void incr_mark(std::size_t bytes);
+  void incr_sweep(std::size_t bytes);
+  //
 };
 
-}  // namespace gc
+} // namespace gc
