@@ -8,7 +8,13 @@
 #include "mark_and_sweep.hpp"
 #include "runtime.h"
 
-gc::MarkAndSweep gcc(1024, true, true);
+#ifndef MAX_ALLOC_SIZE
+#define MAX_ALLOC_SIZE 1024
+#endif
+
+static_assert(MAX_ALLOC_SIZE > 0);
+
+gc::MarkAndSweep gcc(MAX_ALLOC_SIZE, true, true);
 
 void *gc_alloc(size_t size_in_bytes) {
   auto try_alloc = gcc.allocate(size_in_bytes);
