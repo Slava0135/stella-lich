@@ -425,7 +425,7 @@ TEST_CASE("random (incremental)") {
     void *fields[];
   };
 
-  const size_t size = 1024;
+  const size_t size = 128;
   const size_t iterations = 10000;
 
   const size_t max_fields = 3;
@@ -492,13 +492,18 @@ TEST_CASE("random (incremental)") {
     if (roots.size() > 2 && chance_distr(gen) <= remove_root_chance) {
       std::uniform_int_distribution<> root_distr(0, roots.size() - 1);
       auto root_i = root_distr(gen);
+      auto tmp = roots;
       for (size_t i = 0; i < roots.size(); i++) {
         Object **root = &roots[roots.size() - i - 1];
         collector.pop_root(reinterpret_cast<void **>(root));
+        if (i != static_cast<size_t>(root_i)) {
+          tmp.push_back(*root);
+        }
       }
-      roots.erase(roots.begin() + root_i);
+      assert(tmp.size() == roots.size() - 1);
+      roots = tmp;
       for (size_t i = 0; i < roots.size(); i++) {
-        Object **root = &roots[roots.size() - i - 1];
+        Object **root = &roots[i];
         collector.push_root(reinterpret_cast<void **>(root));
       }
     }
