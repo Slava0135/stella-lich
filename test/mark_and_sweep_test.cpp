@@ -445,7 +445,6 @@ TEST_CASE("random (incremental)") {
   const size_t target_roots_n = 10;
   const auto remove_root_chance = 0.1;
 
-
   gc::MarkAndSweep collector(size, true, true, true);
   gc::Stats stats;
   std::string dump;
@@ -471,25 +470,21 @@ TEST_CASE("random (incremental)") {
         collector.allocate(sizeof(size_t) + n_fields * sizeof(void *)));
     // dump = collector.dump();
     // std::cout << dump << std::endl;
-    if (!new_obj) {
-      collector.collect();
-      stats = collector.get_stats();
-    } else {
-      new_obj->n_fields = n_fields;
-      for (auto i = 0; i < n_fields; i++) {
-        new_obj->fields[i] = nullptr;
-      }
-      alive_objects.insert(new_obj);
-      if (roots_n < target_roots_n) {
-        roots[roots_n] = new_obj;
-        Object **root = &roots[roots_n];
-        roots_n++;
-        collector.push_root(reinterpret_cast<void **>(root));
-      }
+    REQUIRE(new_obj != nullptr);
+    new_obj->n_fields = n_fields;
+    for (auto i = 0; i < n_fields; i++) {
+      new_obj->fields[i] = nullptr;
+    }
+    alive_objects.insert(new_obj);
+    if (roots_n < target_roots_n) {
+      roots[roots_n] = new_obj;
+      Object **root = &roots[roots_n];
+      roots_n++;
+      collector.push_root(reinterpret_cast<void **>(root));
     }
     // find alive objects
     std::queue<Object *> queue;
-    for (size_t i = 0; i < roots_n; i ++) {
+    for (size_t i = 0; i < roots_n; i++) {
       queue.push(roots[i]);
     }
     while (!queue.empty()) {

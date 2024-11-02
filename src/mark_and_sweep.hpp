@@ -97,7 +97,7 @@ private:
 
   // only used in incremental mode
   // vvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-  const size_t bytes_to_free_per_alloc_ = 2;
+  const size_t bytes_to_free_per_alloc_ = 4;
   enum Phase {
     MARK,
     SWEEP,

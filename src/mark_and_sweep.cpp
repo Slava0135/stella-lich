@@ -205,14 +205,7 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       log(pointer_to_hex(free_block));
       return free_block;
     } else if (block_meta->block_size > to_allocate) {
-      // can't split block, fill the block instead and zero unused part
-      auto obj_size = block_meta->block_size - sizeof(Metadata);
-      assert(obj_size % sizeof(pointer_t) == 0);
-      auto field_n = obj_size / sizeof(pointer_t);
-      for (size_t i = 0; i < field_n; i++) {
-        auto field_i_addr = &space_[block_idx + i * sizeof(pointer_t)];
-        *reinterpret_cast<void **>(field_i_addr) = nullptr;
-      }
+      // can't split block, fill entire block instead
       // update meta
       block_meta->done = 0;
       block_meta->mark = NOT_MARKED;
@@ -231,6 +224,14 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
       // remove from freelist
       *prev_free_block = *reinterpret_cast<void **>(&space_[block_idx]);
       assert(is_valid_free_block(*prev_free_block));
+      // zero unused part that can contain invalid pointers
+      auto obj_size = block_meta->block_size - sizeof(Metadata);
+      assert(obj_size % sizeof(pointer_t) == 0);
+      auto field_n = obj_size / sizeof(pointer_t);
+      for (size_t i = 0; i < field_n; i++) {
+        auto field_i_addr = &space_[block_idx + i * sizeof(pointer_t)];
+        *reinterpret_cast<void **>(field_i_addr) = nullptr;
+      }
       log("larger size block");
       log(pointer_to_hex(free_block));
       return free_block;
@@ -244,28 +245,6 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
 
 void MarkAndSweep::collect() {
   log("collect");
-  // invalidate incremental state
-  if (incremental) {
-    auto p = reinterpret_cast<void *>(
-        reinterpret_cast<uintptr_t>(space_start_) + sizeof(Metadata));
-    while (p < space_end_) {
-      auto block_idx = pointer_to_idx(p);
-      auto block_meta = get_metadata(block_idx);
-      if (block_meta->mark != FREE) {
-        block_meta->mark = NOT_MARKED;
-      }
-      p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
-    }
-    while (!mark_queue_.empty()) {
-      mark_queue_.pop();
-    }
-    phase_ = MARK;
-    for (auto root : roots_) {
-      if (is_in_space(*root)) {
-        mark_queue_.push(*root);
-      }
-    }
-  }
   stats_.collections++;
   mark();
   sweep();
@@ -477,12 +456,13 @@ std::string MarkAndSweep::dump_stats() const {
   dump.append("STATS\n");
   tables::Table stats({26, 16, 17});
   stats.separator();
-  stats.add_row({"COLLECTIONS (full)", "",
-                 std::format("{:10} cycles", stats_.collections)});
   if (incremental) {
     stats.add_row(
         {"COLLECTIONS (incremental)", "",
          std::format("{:10} cycles", stats_.incremental_collections)});
+  } else {
+    stats.add_row({"COLLECTIONS (full)", "",
+                   std::format("{:10} cycles", stats_.collections)});
   }
   stats.separator();
   stats.add_row({"MEMORY USED (max)",
@@ -659,6 +639,7 @@ void MarkAndSweep::incr_sweep(size_t bytes) {
     }
     p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
     if (p >= space_end_) {
+      MarkAndSweep::merge(); // TODO: incremental merge
       phase_ = MARK;
       for (auto root : roots_) {
         if (is_in_space(*root)) {
