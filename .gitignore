@@ -32,7 +32,6 @@
 *.app
 
 # CMAKE
-
 cmake-*
 CMakeFiles
 CMakeCache.txt
@@ -40,8 +39,8 @@ cmake_install.cmake
 Makefile
 
 # Etc
-
 .vs
 .vscode
 .idea
 build
+out
