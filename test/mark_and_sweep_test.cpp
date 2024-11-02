@@ -459,6 +459,10 @@ TEST_CASE("random (incremental)") {
       collector.collect();
       stats = collector.get_stats();
     } else {
+      new_obj->n_fields = n_fields;
+      for (auto i = 0; i < n_fields; i++) {
+        new_obj->fields[i] = nullptr;
+      }
       alive_objects.insert(new_obj);
       if (roots.size() < target_roots_n) {
         roots.push_back(new_obj);
