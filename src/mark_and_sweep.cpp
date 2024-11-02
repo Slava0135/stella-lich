@@ -97,7 +97,12 @@ MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
 
 Stats MarkAndSweep::get_stats() const { return this->stats_; }
 
-void MarkAndSweep::push_root(void **root) { this->roots_.push_back(root); }
+void MarkAndSweep::push_root(void **root) { 
+  this->roots_.push_back(root);
+  if (incremental && phase_ == MARK) {
+    mark_queue_.push(*root);
+  }
+}
 
 void MarkAndSweep::pop_root(void **root) {
   assert(this->roots_.size() > 0 && "roots must not be empty when poping root");
@@ -544,6 +549,7 @@ std::string MarkAndSweep::dump_blocks() const {
 
 void MarkAndSweep::incr_collect(size_t bytes) {
   log("incremental collect");
+  log(dump());
   switch (phase_) {
   case MARK:
     incr_mark(bytes);
@@ -552,6 +558,7 @@ void MarkAndSweep::incr_collect(size_t bytes) {
     incr_sweep(bytes);
     break;
   }
+  log(dump());
 }
 
 void MarkAndSweep::incr_mark(size_t bytes) {
@@ -611,6 +618,9 @@ void MarkAndSweep::incr_sweep(size_t bytes) {
     p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
     if (p >= space_end_) {
       phase_ = MARK;
+      for (auto root : roots_) {
+        mark_queue_.push(*root);
+      }
       stats_.incremental_collections++;
       return;
     }
