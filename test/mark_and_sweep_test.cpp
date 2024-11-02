@@ -459,6 +459,8 @@ TEST_CASE("random (incremental)") {
       }
     }
     // check invariants
+    dump = collector.dump();
+    std::cout << dump << std::endl;
     stats = collector.get_stats();
     REQUIRE(stats.n_blocks_used >= alive_objects.size());
     REQUIRE(stats.bytes_free + stats.bytes_used == size);
@@ -480,7 +482,7 @@ TEST_CASE("random (incremental)") {
     }
     // remove root randomly
     std::uniform_real_distribution<> chance_distr(0.0, 1.0);
-    if (chance_distr(gen) <= remove_root_chance) {
+    if (roots.size() > 2 && chance_distr(gen) <= remove_root_chance) {
       std::uniform_int_distribution<> root_distr(0, roots.size() - 1);
       auto root_i = root_distr(gen);
       roots.erase(roots.begin() + root_i);
