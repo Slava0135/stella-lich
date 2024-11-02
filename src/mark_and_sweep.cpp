@@ -245,6 +245,16 @@ void *MarkAndSweep::allocate(std::size_t bytes) {
 void MarkAndSweep::collect() {
   log("collect");
   if (incremental) {
+    auto p = reinterpret_cast<void *>(
+        reinterpret_cast<uintptr_t>(space_start_) + sizeof(Metadata));
+    while (p < space_end_) {
+      auto block_idx = pointer_to_idx(p);
+      auto block_meta = get_metadata(block_idx);
+      if (block_meta->mark != FREE) {
+        block_meta->mark = NOT_MARKED;
+      }
+      p = reinterpret_cast<void *>(&space_[block_idx + block_meta->block_size]);
+    }
     while (!mark_queue_.empty()) {
       mark_queue_.pop();
     }
