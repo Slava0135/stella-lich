@@ -69,6 +69,7 @@ MarkAndSweep::MarkAndSweep(size_t max_memory, bool merge_blocks,
                    .reads = 0,
                    .writes = 0,
                    .collections = 0,
+                   .incremental_collections = 0,
                    .collected_objects = std::vector<void *>()}) {
   log("create space");
   space_ = std::make_unique<unsigned char[]>(max_memory);
